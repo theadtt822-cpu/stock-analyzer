@@ -7,6 +7,7 @@ from src import StockData, MarketData, TechIndicator, Visualizer
 from src.data.storage import DataStorage
 import pandas as pd
 import os
+from datetime import datetime
 
 # 设置中文显示
 import matplotlib.pyplot as plt
@@ -140,6 +141,36 @@ def main():
     rg = ReportGenerator(df, "贵州茅台 (sh600519)")
     report_path = rg.generate_html("./output/analysis_report.html")
     print(f"已保存: {report_path}")
+
+    # 推送分析摘要到微信
+    print("\n[5] 推送分析报告到微信...")
+    from src.utils.push import push
+    latest = df.iloc[-1]
+    prev = df.iloc[-2] if len(df) > 1 else df.iloc[0]
+    chg = latest['close'] - prev['close']
+    chg_pct = (chg / prev['close']) * 100
+    sign = "+" if chg >= 0 else ""
+
+    # 综合评分
+    score = rg.calc_composite_score()
+    trend = rg.analyze_trend()
+
+    title = f"个股分析 - 贵州茅台 {datetime.now().strftime('%Y-%m-%d')}"
+    desp = f"## 贵州茅台 (sh600519)\n\n"
+    desp += f"**当前价**: {latest['close']:.2f} ({sign}{chg:.2f}, {sign}{chg_pct:.2f}%)\n\n"
+    desp += f"**综合评分**: {score['score']}/100 ({score['level']})\n\n"
+    desp += f"**短期趋势**: {trend['short']['emoji']} {trend['short']['trend']} ({trend['short']['desc']})\n\n"
+    desp += f"**中期趋势**: {trend['mid']['emoji']} {trend['mid']['trend']} ({trend['mid']['desc']})\n\n"
+    desp += f"**长期趋势**: {trend['long']['emoji']} {trend['long']['trend']} ({trend['long']['desc']})\n\n"
+
+    # 指标解读
+    indicators = [rg.interpret_macd(), rg.interpret_rsi(), rg.interpret_ma(), rg.interpret_kdj()]
+    desp += "## 指标解读\n"
+    for ind in indicators:
+        desp += f"- **{ind['name']}**: {ind['status']} - {ind['desc']}\n"
+
+    push(title, desp)
+    print("已推送到微信")
 
     print("\n" + "=" * 60)
     print("所有图表已生成并保存到 ./output/")
