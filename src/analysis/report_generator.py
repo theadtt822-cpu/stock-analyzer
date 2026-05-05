@@ -648,9 +648,127 @@ class ReportGenerator:
             'risks': risk_items
         }
 
+    # ========== 交易策略 (6步分析) ==========
+
+    def generate_trading_strategy(self, fund_flow_data: dict = None) -> dict:
+        """生成6步交易策略分析"""
+        close = self._get('close')
+        high = self._get('high')
+        low = self._get('low')
+        prev_close = self._get_prev('close')
+        chg_pct = ((close - prev_close) / prev_close * 100) if prev_close > 0 else 0
+        vol = self._get('volume')
+        vol_avg = self.df['volume'].tail(20).mean() if 'volume' in self.df.columns else 0
+
+        # MACD 状态
+        macd_i = self.interpret_macd()
+        if '金叉' in macd_i['status']:
+            macd_status = '金叉'
+        elif '死叉' in macd_i['status']:
+            macd_status = '死叉'
+        else:
+            macd_status = '粘合'
+
+        # RSI 状态
+        rsi = self._get('rsi')
+        if rsi > 70:
+            rsi_status = '强势区'
+        elif rsi < 30:
+            rsi_status = '弱势区'
+        else:
+            rsi_status = '中性'
+
+        # 盘口分析（简化版）：基于资金流大单vs小单
+        if fund_flow_data:
+            big_net = (fund_flow_data.get('super_order') or 0) + (fund_flow_data.get('large_order') or 0)
+            small_net = fund_flow_data.get('small_order') or 0
+            if big_net > 0 and big_net > abs(small_net) * 0.5:
+                bid_ask = '买盘占优'
+            elif big_net < 0 and abs(big_net) > abs(small_net) * 0.5:
+                bid_ask = '卖盘占优'
+            else:
+                bid_ask = '均衡'
+        else:
+            bid_ask = 'N/A'
+
+        # 关键价位
+        sr = self.calc_support_resistance()
+        advice = self.get_advice()
+        score = self.calc_composite_score()['score']
+        atr_pct = (self._get('atr') / close * 100) if close > 0 else 0
+        trend = self.analyze_trend()
+
+        # 仓位建议
+        if score >= 70 and atr_pct <= 3:
+            position = '可重仓（70%以上）'
+        elif score >= 55:
+            position = '适中仓位（30%-50%）'
+        elif score >= 30:
+            position = '轻仓试探（10%-30%）'
+        else:
+            position = '严格控制仓位或观望'
+
+        # 今日价格行为描述
+        if chg_pct > 3 and vol > vol_avg * 1.5:
+            price_action = '放量上涨'
+        elif chg_pct > 3:
+            price_action = '缩量上涨'
+        elif chg_pct < -3 and vol > vol_avg * 1.5:
+            price_action = '放量下跌'
+        elif chg_pct < -3:
+            price_action = '缩量下跌'
+        elif abs(chg_pct) < 1:
+            price_action = '窄幅震荡'
+        elif chg_pct > 0:
+            price_action = '温和上涨'
+        else:
+            price_action = '温和下跌'
+
+        # 核心逻辑
+        logic_parts = []
+        logic_parts.append(f"MACD{macd_status}+RSI{rsi_status}")
+        if trend['short']['trend'] in ('看多', '偏多'):
+            logic_parts.append("技术面向好")
+        elif trend['short']['trend'] in ('看空', '偏空'):
+            logic_parts.append("短期承压")
+        else:
+            logic_parts.append("短期震荡")
+        logic_parts.append(f"今日{price_action}")
+        if rsi > 70:
+            logic_parts.append("注意超买回调风险")
+        if fund_flow_data and fund_flow_data.get('main_5day_trend') in ('持续流出', '偏流出'):
+            logic_parts.append("近期资金持续流出")
+        elif fund_flow_data and fund_flow_data.get('main_5day_trend') in ('持续流入', '偏流入'):
+            logic_parts.append("近期资金偏流入")
+        if atr_pct > 4:
+            logic_parts.append("高波动需谨慎")
+
+        core_logic = '，'.join(logic_parts) + '。'
+
+        return {
+            'key_info': {
+                'price': f'{close:.2f}',
+                'chg_pct': f'+{chg_pct:.2f}%' if chg_pct >= 0 else f'{chg_pct:.2f}%',
+                'high': f'{high:.2f}',
+                'low': f'{low:.2f}',
+                'bid_ask': bid_ask,
+                'rsi': f'{rsi:.2f}',
+                'rsi_status': rsi_status,
+                'macd': macd_status,
+            },
+            'strategy': {
+                'resistances': sr['resistances'][:2],
+                'supports': sr['supports'][:2],
+                'holder_advice': advice['holder'],
+                'watcher_advice': advice['watcher'],
+                'position_advice': position,
+            },
+            'core_logic': core_logic,
+        }
+
     # ========== 生成 HTML 报告 ==========
 
-    def generate_html(self, save_path: str):
+    def generate_html(self, save_path: str, fund_flow_data: dict = None):
         indicators = [
             self.interpret_macd(),
             self.interpret_rsi(),
@@ -664,6 +782,7 @@ class ReportGenerator:
         composite = self.calc_composite_score()
         sr = self.calc_support_resistance()
         advice = self.get_advice()
+        strategy = self.generate_trading_strategy(fund_flow_data)
 
         # 价格和变化
         close = self._get('close')
@@ -763,6 +882,20 @@ h2 {{ font-size: 16px; color: #333; border-bottom: 2px solid #f0f0f0; padding-bo
 .level-tag {{ display: inline-block; background: #f0f2f5; padding: 4px 10px; border-radius: 4px; font-size: 13px; margin: 2px 4px 2px 0; }}
 .risk-tag {{ display: inline-block; background: #fff3e0; color: #e65100; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin: 2px 4px 2px 0; }}
 
+/* Strategy Card */
+.key-info-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }}
+.key-info-item {{ background: #f8f9fa; border-radius: 8px; padding: 10px; text-align: center; }}
+.key-info-label {{ font-size: 11px; color: #999; margin-bottom: 4px; }}
+.key-info-value {{ font-size: 15px; font-weight: 600; }}
+.strategy-section {{ margin-bottom: 16px; }}
+.strategy-section h4 {{ font-size: 13px; color: #666; margin-bottom: 8px; font-weight: 600; }}
+.price-level-row {{ display: flex; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }}
+.level-tag-red {{ display: inline-block; background: #ffebee; color: #DC143C; padding: 3px 10px; border-radius: 4px; font-size: 13px; margin-right: 4px; }}
+.level-tag-green {{ display: inline-block; background: #e8f5e9; color: #008000; padding: 3px 10px; border-radius: 4px; font-size: 13px; margin-right: 4px; }}
+.advice-line {{ font-size: 14px; color: #333; margin-bottom: 6px; padding-left: 12px; border-left: 3px solid #4a90d9; }}
+.core-logic {{ background: linear-gradient(135deg, #f0f4ff, #f8f9fa); border-radius: 8px; padding: 14px; font-size: 14px; color: #444; line-height: 1.7; }}
+.core-logic strong {{ color: #1a1a2e; }}
+
 /* Footer */
 .footer {{ text-align: center; padding: 16px; color: #999; font-size: 12px; }}
 
@@ -812,6 +945,74 @@ h2 {{ font-size: 16px; color: #333; border-bottom: 2px solid #f0f0f0; padding-bo
     <div class="score-circle" style="border-color: {composite['level_color']}">
         <span class="score-num" style="color: {composite['level_color']}">{composite['score']}</span>
         <span class="score-label" style="color: {composite['level_color']}">{composite['level']}</span>
+    </div>
+</div>
+
+<!-- Trading Strategy -->
+<div class="card">
+    <h2>交易策略</h2>
+
+    <!-- Key Info -->
+    <div class="key-info-grid">
+        <div class="key-info-item">
+            <div class="key-info-label">现价</div>
+            <div class="key-info-value" style="color:{chg_color}">{strategy['key_info']['price']}</div>
+            <div style="font-size:12px;color:{chg_color}">{strategy['key_info']['chg_pct']}</div>
+        </div>
+        <div class="key-info-item">
+            <div class="key-info-label">今日最高</div>
+            <div class="key-info-value">{strategy['key_info']['high']}</div>
+        </div>
+        <div class="key-info-item">
+            <div class="key-info-label">今日最低</div>
+            <div class="key-info-value">{strategy['key_info']['low']}</div>
+        </div>
+        <div class="key-info-item">
+            <div class="key-info-label">盘口</div>
+            <div class="key-info-value" style="color:{'#DC143C' if strategy['key_info']['bid_ask'] == '买盘占优' else '#008000' if strategy['key_info']['bid_ask'] == '卖盘占优' else '#888'}">{strategy['key_info']['bid_ask']}</div>
+        </div>
+        <div class="key-info-item">
+            <div class="key-info-label">RSI</div>
+            <div class="key-info-value">{strategy['key_info']['rsi']}</div>
+            <div style="font-size:11px;color:{'#DC143C' if strategy['key_info']['rsi_status'] == '强势区' else '#008000' if strategy['key_info']['rsi_status'] == '弱势区' else '#888'}">{strategy['key_info']['rsi_status']}</div>
+        </div>
+        <div class="key-info-item">
+            <div class="key-info-label">MACD</div>
+            <div class="key-info-value" style="color:{'#DC143C' if strategy['key_info']['macd'] == '金叉' else '#008000' if strategy['key_info']['macd'] == '死叉' else '#888'}">{strategy['key_info']['macd']}</div>
+        </div>
+    </div>
+
+    <!-- Strategy -->
+    <div class="strategy-section">
+        <h4>1. 关键价位</h4>
+        <div class="price-level-row">
+            <div>
+                <span style="font-size:12px;color:#999;margin-right:8px">压力位:</span>
+                {''.join(f'<span class="level-tag-red">{r}</span>' for r in strategy['strategy']['resistances'])}
+            </div>
+        </div>
+        <div class="price-level-row">
+            <div>
+                <span style="font-size:12px;color:#999;margin-right:8px">支撑位:</span>
+                {''.join(f'<span class="level-tag-green">{s}</span>' for s in strategy['strategy']['supports'])}
+            </div>
+        </div>
+    </div>
+
+    <div class="strategy-section">
+        <h4>2. 操作建议</h4>
+        <div class="advice-line"><strong>若已持有：</strong>{strategy['strategy']['holder_advice']}</div>
+        <div class="advice-line" style="border-left-color:#008000"><strong>若未持有：</strong>{strategy['strategy']['watcher_advice']}</div>
+    </div>
+
+    <div class="strategy-section">
+        <h4>3. 仓位建议</h4>
+        <div class="advice-line" style="border-left-color:#FF8C00">{strategy['strategy']['position_advice']}</div>
+    </div>
+
+    <div class="strategy-section" style="margin-bottom:0">
+        <h4>核心逻辑</h4>
+        <div class="core-logic"><strong>综合研判：</strong>{strategy['core_logic']}</div>
     </div>
 </div>
 

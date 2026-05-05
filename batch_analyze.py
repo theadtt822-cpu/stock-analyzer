@@ -57,6 +57,11 @@ for i, symbol in enumerate(stocks, 1):
         df['k'], df['d'], df['j'] = kdj_data['k'], kdj_data['d'], kdj_data['j']
         df['atr'] = ti.calc_atr(14)
 
+        # 获取资金流数据（用于交易策略卡片）
+        print(f"  获取资金流数据...", end=' ', flush=True)
+        fund_flow = stock.get_fund_flow_data(symbol)
+        print("OK")
+
         rg = ReportGenerator(df, symbol)
         score = rg.calc_composite_score()
         trend = rg.analyze_trend()
@@ -83,8 +88,8 @@ for i, symbol in enumerate(stocks, 1):
             'risks': advice['risks']
         })
 
-        # 生成单只股票的 HTML 报告
-        rg.generate_html(f"./output/{symbol}_report.html")
+        # 生成单只股票的 HTML 报告（含交易策略卡片）
+        rg.generate_html(f"./output/{symbol}_report.html", fund_flow_data=fund_flow)
 
         # 只生成综合报告PNG，不生成各个指标图（加速）
         from src import Visualizer

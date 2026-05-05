@@ -7,7 +7,6 @@ from src import StockData, MarketData, TechIndicator, Visualizer
 from src.data.storage import DataStorage
 import pandas as pd
 import os
-from datetime import datetime
 
 # 设置中文显示
 import matplotlib.pyplot as plt
@@ -19,7 +18,7 @@ os.makedirs("./output", exist_ok=True)
 
 def main():
     print("=" * 60)
-    print("股票分析工具 - 贵州茅台 (sh600519)")
+    print("股票分析工具 - 莲花控股 (sh600186)")
     print("=" * 60)
 
     # 初始化
@@ -29,7 +28,7 @@ def main():
 
     # 获取最近两年的日线数据
     print("\n[1] 获取股票数据...")
-    df = stock.get_stock_daily("sh600519", "20230101", "20260505")
+    df = stock.get_stock_daily("sh600186", "20230101", "20260505")
 
     if df.empty:
         print("获取数据失败")
@@ -43,8 +42,8 @@ def main():
         df = df.rename(columns={'amount': 'volume'})
 
     # 保存数据
-    storage.save_stock_data(df, "sh600519", force=True)
-    print("\n数据已保存到 ./data/stock_sh600519.csv")
+    storage.save_stock_data(df, "sh600186", force=True)
+    print("\n数据已保存到 ./data/stock_sh600186.csv")
 
     # 计算技术指标
     print("\n[2] 计算技术指标...")
@@ -84,7 +83,7 @@ def main():
     print(df[['date', 'close', 'sma20', 'macd', 'rsi']].tail())
 
     # 保存带指标的数据
-    df.to_csv("./data/stock_sh600519_with_indicators.csv", index=False, encoding='utf-8-sig')
+    df.to_csv("./data/stock_sh600186_with_indicators.csv", index=False, encoding='utf-8-sig')
     print("\n带指标的数据已保存")
 
     # 可视化
@@ -92,85 +91,55 @@ def main():
 
     # 图1: K线图 + 成交量
     print("\n正在生成 K线图 + 成交量...")
-    viz.plot_candlestick_with_volume(df, "贵州茅台", save_path="./output/01_candlestick_volume.png")
+    viz.plot_candlestick_with_volume(df, "莲花控股", save_path="./output/01_candlestick_volume.png")
     print("已保存: ./output/01_candlestick_volume.png")
 
     # 图2: MACD
     print("正在生成 MACD...")
-    viz.plot_macd(df, "贵州茅台")
+    viz.plot_macd(df, "莲花控股")
     plt.savefig("./output/02_macd.png", dpi=150, bbox_inches='tight')
     plt.close()
     print("已保存: ./output/02_macd.png")
 
     # 图3: RSI
     print("正在生成 RSI...")
-    viz.plot_rsi(df, "贵州茅台")
+    viz.plot_rsi(df, "莲花控股")
     plt.savefig("./output/03_rsi.png", dpi=150, bbox_inches='tight')
     plt.close()
     print("已保存: ./output/03_rsi.png")
 
     # 图4: 布林带
     print("正在生成 布林带...")
-    viz.plot_boll(df, "贵州茅台")
+    viz.plot_boll(df, "莲花控股")
     plt.savefig("./output/04_boll.png", dpi=150, bbox_inches='tight')
     plt.close()
     print("已保存: ./output/04_boll.png")
 
     # 图5: KDJ
     print("正在生成 KDJ...")
-    viz.plot_kdj(df, "贵州茅台")
+    viz.plot_kdj(df, "莲花控股")
     plt.savefig("./output/05_kdj.png", dpi=150, bbox_inches='tight')
     plt.close()
     print("已保存: ./output/05_kdj.png")
 
     # 图6: ATR
     print("正在生成 ATR...")
-    viz.plot_atr(df, "贵州茅台")
+    viz.plot_atr(df, "莲花控股")
     plt.savefig("./output/06_atr.png", dpi=150, bbox_inches='tight')
     plt.close()
     print("已保存: ./output/06_atr.png")
 
     # 图7: 综合分析报告
     print("正在生成 综合分析报告...")
-    viz.plot_analysis_report(df, "贵州茅台", save_path="./output/07_analysis_report.png")
+    viz.plot_analysis_report(df, "莲花控股", save_path="./output/07_analysis_report.png")
     print("已保存: ./output/07_analysis_report.png")
 
     # 图8: 专业分析 HTML 报告
     print("\n[4] 生成专业分析报告...")
     from src.analysis import ReportGenerator
-    rg = ReportGenerator(df, "贵州茅台 (sh600519)")
+    rg = ReportGenerator(df, "莲花控股 (sh600186)")
     report_path = rg.generate_html("./output/analysis_report.html")
     print(f"已保存: {report_path}")
-
-    # 推送分析摘要到微信
-    print("\n[5] 推送分析报告到微信...")
-    from src.utils.push import push
-    latest = df.iloc[-1]
-    prev = df.iloc[-2] if len(df) > 1 else df.iloc[0]
-    chg = latest['close'] - prev['close']
-    chg_pct = (chg / prev['close']) * 100
-    sign = "+" if chg >= 0 else ""
-
-    # 综合评分
-    score = rg.calc_composite_score()
-    trend = rg.analyze_trend()
-
-    title = f"个股分析 - 贵州茅台 {datetime.now().strftime('%Y-%m-%d')}"
-    desp = f"## 贵州茅台 (sh600519)\n\n"
-    desp += f"**当前价**: {latest['close']:.2f} ({sign}{chg:.2f}, {sign}{chg_pct:.2f}%)\n\n"
-    desp += f"**综合评分**: {score['score']}/100 ({score['level']})\n\n"
-    desp += f"**短期趋势**: {trend['short']['emoji']} {trend['short']['trend']} ({trend['short']['desc']})\n\n"
-    desp += f"**中期趋势**: {trend['mid']['emoji']} {trend['mid']['trend']} ({trend['mid']['desc']})\n\n"
-    desp += f"**长期趋势**: {trend['long']['emoji']} {trend['long']['trend']} ({trend['long']['desc']})\n\n"
-
-    # 指标解读
-    indicators = [rg.interpret_macd(), rg.interpret_rsi(), rg.interpret_ma(), rg.interpret_kdj()]
-    desp += "## 指标解读\n"
-    for ind in indicators:
-        desp += f"- **{ind['name']}**: {ind['status']} - {ind['desc']}\n"
-
-    push(title, desp)
-    print("已推送到微信")
 
     print("\n" + "=" * 60)
     print("所有图表已生成并保存到 ./output/")
