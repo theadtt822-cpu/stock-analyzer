@@ -1,0 +1,6 @@
+{
+  " appName": "stock-market-analysis",
+  "version": "0.1.0",
+  "description": "股票和市场分析项目",
+  "python_version": ">=3.8"
+}
