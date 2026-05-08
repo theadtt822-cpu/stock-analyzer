@@ -1,0 +1,16 @@
+[Unit]
+Description=StockHolmes Report Server
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/.openclaw/workspace/daily_stock_analysis
+ExecStart=/usr/bin/python3.11 /home/admin/.openclaw/workspace/daily_stock_analysis/report_server.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

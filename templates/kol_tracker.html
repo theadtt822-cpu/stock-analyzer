@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KOL 荐股跟踪</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; background: #f0f2f5; color: #333; padding: 16px; }
+.container { max-width: 1400px; margin: 0 auto; }
+.header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+.header h1 { font-size: 22px; margin-bottom: 4px; }
+.header .sub { font-size: 13px; opacity: 0.7; }
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.tab.active { background: #1a1a2e; color: #fff; }
+.section { display: none; }
+.section.active { display: block; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 20px; margin-bottom: 16px; }
+.card h2 { font-size: 16px; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px 10px; text-align: center; font-size: 13px; }
+th { background: #f8f9fa; color: #666; font-weight: 600; border-bottom: 2px solid #eee; }
+td { border-bottom: 1px solid #f0f0f0; }
+tr:hover td { background: #f8f9fa; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.win { background: #fff3e0; color: #e65100; }
+.loss { background: #ffebee; color: #c62828; }
+.breakeven { background: #e3f2fd; color: #1565c0; }
+.tracking { background: #e8f5e9; color: #2e7d32; }
+.high-priority { background: #fce4ec; color: #c62828; }
+.normal-priority { background: #e3f2fd; color: #1565c0; }
+.btn { display: inline-flex; align-items: center; gap: 4px; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-primary { background: #4a90d9; color: #fff; }
+.btn-primary:hover { background: #3a80c9; }
+.btn-success { background: #008000; color: #fff; }
+.btn-danger { background: #dc3545; color: #fff; }
+.btn-warning { background: #faad14; color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
+.modal { background: #fff; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+.modal h3 { font-size: 18px; margin-bottom: 16px; }
+.modal label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; margin-top: 12px; }
+.modal input, .modal select, .modal textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+.modal textarea { height: 120px; resize: vertical; }
+.modal .btn-group { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 24px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 1000; }
+.toast.success { background: #008000; }
+.toast.error { background: #dc3545; }
+.toast.info { background: #4a90d9; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.stat-card .num { font-size: 24px; font-weight: bold; }
+.stat-card .label { font-size: 12px; color: #999; margin-top: 4px; }
+.stat-card.good .num { color: #008000; }
+.stat-card.bad .num { color: #dc3545; }
+.stat-card.neutral .num { color: #4a90d9; }
+.summary-item { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 4px 10px; border-radius: 6px; background: #f8f9fa; }
+.back-link { color: #4a90d9; text-decoration: none; font-size: 14px; margin-bottom: 16px; display: inline-block; }
+.back-link:hover { text-decoration: underline; }
+.rice-tag { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+  <h1>📊 KOL 荐股跟踪系统</h1>
+  <div class="sub">跟踪博主推荐 → 验证准确率 → 筛选优质来源</div>
+</div>
+
+<a href="javascript:history.back()" class="back-link">← 返回仪表盘</a>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchSection('ranking')">🏆 排行榜</div>
+  <div class="tab" onclick="switchSection('tracking')">📋 跟踪表</div>
+  <div class="tab" onclick="switchSection('add')">➕ 录入</div>
+  <div class="tab" onclick="switchSection('article')">📝 文章摘要</div>
+</div>
+
+<!-- 排行榜 -->
+<div class="section active" id="rankingSection">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:16px">🏆 KOL 胜率排行榜</h2>
+    <button class="btn btn-primary btn-sm" onclick="refreshStats()">&#x21BB; 刷新统计</button>
+  </div>
+  <div id="rankingContent"></div>
+</div>
+
+<!-- 跟踪表 -->
+<div class="section" id="trackingSection">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:16px">📋 荐股跟踪表</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="refreshRecs()">&#x21BB; 刷新行情</button>
+      <button class="btn btn-success btn-sm" onclick="showAddRecModal()">+ 新增</button>
+    </div>
+  </div>
+  <div id="trackingContent"></div>
+</div>
+
+<!-- 录入 -->
+<div class="section" id="addSection">
+  <div class="card">
+    <h2>➕ 录入荐股信息</h2>
+    <form id="addForm" onsubmit="return submitAddForm(event)">
+      <label>来源博主 *</label>
+      <select id="addSource" required></select>
+
+      <label>股票代码（选填）</label>
+      <input id="addCode" placeholder="如 002384">
+
+      <label>股票名称 *</label>
+      <input id="addName" placeholder="如 东山精密" required>
+
+      <label>推荐日期 *</label>
+      <input type="date" id="addDate" required>
+
+      <label>推荐时价格（可选）</label>
+      <input type="number" id="addPrice" step="0.01" placeholder="如 19.50">
+
+      <label>推荐理由</label>
+      <textarea id="addReason" placeholder="博主推荐的原因/逻辑"></textarea>
+
+      <label>操作建议（如：买入/仓位3成/目标价XX等）</label>
+      <input id="addOperation" placeholder="如 买入，仓位3成，目标价22">
+
+      <label>文章链接（可选）</label>
+      <input id="addUrl" placeholder="https://...">
+
+      <div class="btn-group">
+        <button type="submit" class="btn btn-primary">✅ 提交</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 文章摘要 -->
+<div class="section" id="articleSection">
+  <div class="card">
+    <h2>📝 文章摘要 & 解析</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:12px">粘贴公众号长文，AI 自动提取荐股信息并生成摘要</p>
+
+    <label>文章来源</label>
+    <select id="articleSource"></select>
+
+    <label>文章全文</label>
+    <textarea id="articleText" style="height:200px" placeholder="粘贴公众号/小红书文章全文..."></textarea>
+
+    <button class="btn btn-warning" onclick="summarizeArticle()" id="summarizeBtn">🤖 AI 摘要</button>
+
+    <div id="articleResult" style="margin-top:16px"></div>
+  </div>
+</div>
+</div>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+const UK = 'tiantian';
+
+function api(path, opts) {
+  return fetch('/api/' + UK + path, opts).then(r => r.json());
+}
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || 'info');
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function switchSection(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchSection('${name}')"]`).classList.add('active');
+  document.getElementById(name + 'Section').classList.add('active');
+}
+
+// ===== 排行榜 =====
+async function refreshStats() {
+  const stats = await api('/kol/stats');
+  const html = renderStats(stats);
+  document.getElementById('rankingContent').innerHTML = html;
+}
+
+function renderStats(stats) {
+  const entries = Object.values(stats).filter(s => s.total_recs > 0)
+    .sort((a, b) => b.win_rate - a.win_rate);
+
+  if (entries.length === 0) {
+    return '<div style="text-align:center;padding:40px;color:#999">暂无数据，请先录入荐股记录</div>';
+  }
+
+  let html = '<table><thead><tr>' +
+    '<th>排名</th><th>博主</th><th>平台</th><th>推荐数</th><th>已完成</th>' +
+    '<th>胜率</th><th>平均收益(d10)</th><th>最大收益</th><th>最大回撤</th>' +
+    '</tr></thead><tbody>';
+
+  entries.forEach((s, i) => {
+    const wrColor = s.win_rate >= 60 ? '#008000' : s.win_rate >= 40 ? '#faad14' : '#dc3545';
+    const retColor = s.avg_return >= 0 ? '#008000' : '#dc3545';
+    html += '<tr>' +
+      '<td>' + (i+1) + '</td>' +
+      '<td><strong>' + esc(s.name) + '</strong> ' + (s.priority === 'high' ? '<span class="rice-tag">重点</span>' : '') + '</td>' +
+      '<td>' + esc(s.platform) + '</td>' +
+      '<td>' + s.total_recs + '</td>' +
+      '<td>' + s.completed + ' (胜' + s.wins + '/负' + s.losses + '/平' + s.breakeven + ')</td>' +
+      '<td style="color:' + wrColor + ';font-weight:bold">' + s.win_rate + '%</td>' +
+      '<td style="color:' + retColor + '">' + (s.avg_return >= 0 ? '+' : '') + s.avg_return + '%</td>' +
+      '<td style="color:#008000">+' + s.avg_max_gain + '%</td>' +
+      '<td style="color:#dc3545">' + s.avg_max_drawdown + '%</td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+// ===== 跟踪表 =====
+let allRecs = [];
+let allSources = [];
+
+async function refreshRecs() {
+  const recsData = await api('/kol/recommendations');
+  const sourcesData = await api('/kol/sources');
+  allRecs = recsData.recommendations || [];
+  allSources = sourcesData.sources || [];
+  
+  // 更新跟踪数据
+  await api('/kol/refresh', {method: 'POST'});
+  
+  // 重新获取
+  const recsData2 = await api('/kol/recommendations');
+  allRecs = recsData2.recommendations || [];
+  
+  document.getElementById('trackingContent').innerHTML = renderRecs(allRecs);
+}
+
+function getSourceName(id) {
+  const s = allSources.find(x => x.id === id);
+  return s ? s.name : id;
+}
+
+function getSourcePriority(id) {
+  const s = allSources.find(x => x.id === id);
+  return s ? s.priority : 'normal';
+}
+
+function renderRecs(recs) {
+  if (!recs || recs.length === 0) {
+    return '<div style="text-align:center;padding:40px;color:#999">暂无记录</div>';
+  }
+
+  // 按日期倒序
+  recs.sort((a, b) => (b.recommend_date || '').localeCompare(a.recommend_date || ''));
+
+  let html = '<div style="overflow-x:auto"><table><thead><tr>' +
+    '<th>博主</th><th>股票</th><th>推荐日期</th><th>基准价</th>' +
+    '<th>操作建议</th>' +
+    '<th>D1</th><th>D3</th><th>D5</th><th>D10</th>' +
+    '<th>最大收益</th><th>最大回撤</th><th>结果</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  recs.forEach(r => {
+    const srcName = getSourceName(r.source_id);
+    const isRice = getSourcePriority(r.source_id) === 'high';
+    const d1 = r.tracking && r.tracking.d1;
+    const d3 = r.tracking && r.tracking.d3;
+    const d5 = r.tracking && r.tracking.d5;
+    const d10 = r.tracking && r.tracking.d10;
+
+    function cell(d) {
+      if (!d || !d.price) return '<span style="color:#ccc">—</span>';
+      const c = d.pnl_pct >= 5 ? '#008000' : d.pnl_pct <= -5 ? '#dc3545' : '#666';
+      return '<span style="color:' + c + '">' + (d.pnl_pct >= 0 ? '+' : '') + d.pnl_pct + '%</span>';
+    }
+
+    function statusTag(r) {
+      if (r.status === 'closed') {
+        const cls = r.final_result === 'win' ? 'win' : r.final_result === 'loss' ? 'loss' : 'breakeven';
+        const label = r.final_result === 'win' ? '✅ 赢' : r.final_result === 'loss' ? '❌ 输' : '➖ 平';
+        return '<span class="tag ' + cls + '">' + label + '</span>';
+      }
+      return '<span class="tag tracking">⏳ 跟踪中</span>';
+    }
+
+    html += '<tr>' +
+      '<td>' + (isRice ? '<span class="rice-tag">rice</span> ' : '') + esc(srcName) + '</td>' +
+      '<td><strong>' + esc(r.stock_name) + '</strong><br><span style="font-size:11px;color:#999">' + esc(r.stock_code) + '</span></td>' +
+      '<td>' + esc(r.recommend_date) + '</td>' +
+      '<td>' + (r.base_price || r.recommend_price || '—') + '</td>' +
+      '<td style="font-size:12px">' + esc(r.operation || '—') + '</td>' +
+      '<td>' + cell(d1) + '</td>' +
+      '<td>' + cell(d3) + '</td>' +
+      '<td>' + cell(d5) + '</td>' +
+      '<td>' + cell(d10) + '</td>' +
+      '<td style="color:#008000">' + (r.max_gain_pct != null ? '+' + r.max_gain_pct + '%' : '—') + '</td>' +
+      '<td style="color:#dc3545">' + (r.max_drawdown_pct != null ? r.max_drawdown_pct + '%' : '—') + '</td>' +
+      '<td>' + statusTag(r) + '</td>' +
+      '<td><button class="btn btn-danger btn-sm" onclick="delRec(\'' + r.id + '\')">&#x2716;</button></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  return html;
+}
+
+async function delRec(id) {
+  if (!confirm('确定删除此记录？')) return;
+  await api('/kol/recommendations/' + id, {method: 'DELETE'});
+  refreshRecs();
+  toast('已删除', 'success');
+}
+
+// ===== 录入 =====
+async function loadSources() {
+  const data = await api('/kol/sources');
+  allSources = data.sources || [];
+  const opts = allSources.map(s =>
+    '<option value="' + s.id + '">' + esc(s.name) + ' (' + esc(s.platform) + ')</option>'
+  ).join('');
+  document.getElementById('addSource').innerHTML = opts;
+  document.getElementById('articleSource').innerHTML = opts;
+  
+  // 设置默认日期为今天
+  document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+}
+
+async function submitAddForm(e) {
+  e.preventDefault();
+  const code = document.getElementById('addCode').value.trim();
+  const name = document.getElementById('addName').value.trim();
+  if (!name) { toast('请输入股票名称', 'error'); return false; }
+  const rec = {
+    source_id: document.getElementById('addSource').value,
+    stock_code: code,
+    stock_name: name,
+    recommend_date: document.getElementById('addDate').value,
+    recommend_price: parseFloat(document.getElementById('addPrice').value) || null,
+    reason: document.getElementById('addReason').value.trim(),
+    operation: document.getElementById('addOperation').value.trim(),
+    article_url: document.getElementById('addUrl').value.trim(),
+    status: 'tracking',
+    tracking: {},
+  };
+  const r = await api('/kol/recommendations', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rec}),
+  });
+  if (r.ok) {
+    toast('录入成功！', 'success');
+    document.getElementById('addForm').reset();
+    document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+  } else {
+    toast('录入失败: ' + r.error, 'error');
+  }
+  return false;
+}
+
+// ===== 文章摘要 =====
+async function summarizeArticle() {
+  const text = document.getElementById('articleText').value.trim();
+  if (!text) { toast('请先粘贴文章内容', 'error'); return; }
+  const source = document.getElementById('articleSource');
+  const sourceName = source.options[source.selectedIndex].text;
+
+  const btn = document.getElementById('summarizeBtn');
+  btn.disabled = true;
+  btn.textContent = '🤖 分析中...';
+
+  try {
+    const r = await api('/kol/summarize', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, source: sourceName}),
+    });
+    if (r.ok && r.result) {
+      renderArticleResult(r.result, sourceName);
+    } else {
+      toast('摘要失败', 'error');
+    }
+  } catch(e) {
+    toast('出错: ' + e.message, 'error');
+    console.error('Summarize error:', e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 AI 摘要';
+  }
+}
+
+function renderArticleResult(result, sourceName) {
+  const html = '<div class="card" style="border-left:3px solid #4a90d9">' +
+    '<h2>📝 摘要结果 — ' + esc(sourceName) + '</h2>' +
+    '<div style="font-size:14px;color:#333;margin-bottom:12px">' + esc(result.summary) + '</div>' +
+    '<div style="margin-bottom:12px">' +
+      '<strong style="font-size:13px">📌 关键要点：</strong>' +
+      (result.key_points || []).map(p => '<div style="font-size:13px;color:#555;padding:2px 0">• ' + esc(p) + '</div>').join('') +
+    '</div>';
+
+  if (result.stocks && result.stocks.length > 0) {
+    html += '<div style="margin-top:12px">' +
+      '<strong style="font-size:13px">🎯 荐股信息：</strong>' +
+      '<table style="margin-top:8px"><thead><tr>' +
+      '<th>代码</th><th>名称</th><th>理由</th><th>操作建议</th><th></th>' +
+      '</tr></thead><tbody>';
+    result.stocks.forEach(s => {
+      html += '<tr>' +
+        '<td>' + esc(s.code) + '</td>' +
+        '<td>' + esc(s.name) + '</td>' +
+        '<td style="font-size:12px">' + esc(s.reason) + '</td>' +
+        '<td style="font-size:12px">' + esc(s.operation) + '</td>' +
+        '<td><button class="btn btn-success btn-sm" onclick="quickAddFromArticle(\'' +
+          s.code + "','" + s.name + "')\">录入</button></td>" +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  html += '</div>';
+  document.getElementById('articleResult').innerHTML = html;
+}
+
+function quickAddFromArticle(code, name) {
+  document.getElementById('addCode').value = code;
+  document.getElementById('addName').value = name;
+  switchSection('add');
+  toast('已填入代码和名称，请补充其他信息', 'info');
+}
+
+// ===== 初始化 =====
+(async function init() {
+  await loadSources();
+  refreshStats();
+  refreshRecs();
+})();
+</script>
+</body>
+</html>

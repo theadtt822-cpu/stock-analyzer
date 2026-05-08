@@ -1,0 +1,811 @@
+#!/usr/bin/env python3.11
+"""三维分析报告生成器（含AI分析）"""
+import urllib.request, json, math, time, os, requests, pywencai
+
+with open("output/boss/portfolio_dashboard.json") as f:
+    data = json.load(f)
+
+codes_tencent = []; stock_map = {}
+for s in data["results"]:
+    c = s["code"]; mkt = "sh" if c.startswith("6") else "sz"
+    codes_tencent.append(mkt + c); stock_map[c] = s
+
+url = "https://qt.gtimg.cn/q=" + ",".join(codes_tencent)
+raw = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0"})).read()
+tencent_data = {}
+for line in raw.decode("gbk").split(";"):
+    if "~" not in line: continue
+    p = line.split("~")
+    if len(p) < 40: continue
+    tencent_data[p[2][-6:]] = {
+        "price":float(p[3]),"pct":float(p[32]),"pre":float(p[4]),
+        "high":float(p[33]),"low":float(p[34]),
+        "turnover":float(p[38]) if len(p)>38 and p[38] else 0,
+        "vol":float(p[37]) if len(p)>37 and p[37] else 0,
+        "amount_wan":float(p[36]) if len(p)>36 and p[36] else 0
+    }
+
+# 📊 大盘指数（2026-05-08 新增）- 用腾讯API
+market_indices = {}
+idx_codes = [('sh000001','上证指数'),('sz399001','深证成指'),('sz399006','创业板指'),('sh000688','科创50')]
+idx_url = "https://qt.gtimg.cn/q=" + ",".join([c[0] for c in idx_codes])
+try:
+    idx_raw = urllib.request.urlopen(urllib.request.Request(idx_url, headers={"User-Agent":"Mozilla/5.0"}), timeout=8).read()
+    for line in idx_raw.decode("gbk").split(";"):
+        if "~" not in line: continue
+        p = line.split("~")
+        if len(p) < 40: continue
+        for ic, iname in idx_codes:
+            if p[2].endswith(ic[2:]):
+                market_indices[iname] = {"price":float(p[3]),"pct":float(p[32]),"high":float(p[33]),"low":float(p[34])}
+except: pass
+
+# 📊 板块指数（用东方财富API，可能限流 - 延迟2秒后再试）
+time.sleep(2)
+sector_map = {
+    '消费电子':'90.BK0483','通信设备':'90.BK0464','光学光电子':'90.BK0456',
+    '小金属':'90.BK0529','储能':'90.BK1074','半导体':'90.BK0915',
+    '新材料':'90.BK1024','信创':'90.BK1113','锂电池':'90.BK0574',
+    '电子元件':'90.BK0634','光伏设备':'90.BK0767','光电显示':'90.BK0575',
+    '稀有金属':'90.BK0529','储能电池':'90.BK1074','光模块':'90.BK0574',
+    '光学元件':'90.BK0456'
+}
+sector_data = {}
+for sname, secid in sector_map.items():
+    try:
+        url = f'https://push2.eastmoney.com/api/qt/stock/get?secid={secid}&fields=f43,f170&_=1'
+        raw = json.loads(urllib.request.urlopen(url, timeout=5).read())
+        d = raw.get('data',{})
+        if d and d.get('f43'):
+            sector_data[sname] = {"price":d['f43']/100,"pct":(d.get('f170') or 0)/100}
+        time.sleep(0.5)
+    except: pass
+
+# 💰 资金流数据（改用 pywencai tableV1，稳定可靠）
+flow_map = {}
+data_reliability = {}
+for code in stock_map:
+    try:
+        sname = stock_map[code]["name"]
+        mkt = "sz" if code.startswith(("0","3")) else "sh"
+        full_code = mkt + code
+        # 用 tableV1 查询资金流（最稳定的返回格式）
+        result = pywencai.get(query=f'{full_code} 资金流向 主力净流入 特大单 大单', query_type='stock', perpage=1)
+        tbl = result.get('tableV1')
+        if tbl is None or not hasattr(tbl, 'to_dict'):
+            time.sleep(0.5)
+            continue
+        rows = tbl.to_dict('records')
+        if not rows:
+            time.sleep(0.5)
+            continue
+        row = rows[0]
+        
+        # 提取字段（单位：元）
+        main_net = float(row.get('资金流向', 0) or 0)  # 主力净流入
+        super_large = float(row.get('特大单净额', 0) or 0)  # 超大单
+        large_net = float(row.get('dde大单净额', 0) or 0)  # 大单
+        inflow = float(row.get('资金流入inner', 0) or 0)
+        outflow = float(row.get('资金流出inner', 0) or 0)
+        
+        tq = tencent_data.get(code, {})
+        turnover_wan = tq.get("amount_wan", 0)
+        
+        reliability = "可靠"
+        reasons = []
+        calc_main = super_large + large_net
+        
+        # 交叉验证
+        if abs(main_net) > 1e7 and abs(calc_main) > 1e7:
+            diff_pct = abs(main_net - calc_main) / max(abs(main_net), abs(calc_main)) * 100
+            if diff_pct > 100:
+                reliability = "不可靠"
+                reasons.append(f"主力 vs 超大+大偏差{diff_pct:.0f}%")
+            elif diff_pct > 50:
+                reliability = "存疑"
+                reasons.append(f"主力 vs 超大+大偏差{diff_pct:.0f}%")
+        
+        if main_net * calc_main < 0 and abs(main_net) > 5e7:
+            reliability = "不可靠"
+            reasons.append("主力与超大+大方向相反")
+        
+        data_reliability[code] = {"level": reliability, "reasons": reasons, "turnover_wan": turnover_wan}
+        
+        flow_map[code] = {
+            "f12":code, "f14":sname,
+            "f2":tq.get("price",0), "f3":tq.get("pct",0),
+            "f62": main_net,
+            "f184": int(main_net/10000) if main_net else 0,
+            "f66": int(super_large),
+            "f69": 0,
+            "f72": int(large_net),
+            "f78": int(super_large),
+            "reliability": reliability,
+            "reliability_reasons": "、".join(reasons) if reasons else "",
+            "turnover": tq.get("turnover", 0),
+            "amount_wan": turnover_wan,
+            "vol": tq.get("vol", 0)
+        }
+        time.sleep(0.5)  # 避免 pywencai 限流
+    except Exception as e:
+        pass
+
+# 📰 新闻/公告数据（pywencai，每个股票查一次）
+print("📰 新闻/公告...")
+news_data = {}  # code -> [{title, date, source, url}]
+for code in stock_map:
+    try:
+        sname = stock_map[code]["name"]
+        mkt = "sz" if code.startswith(("0","3")) else "sh"
+        full_code = mkt + code
+        result = pywencai.get(query=f'{full_code} 最新消息 新闻', query_type='stock', perpage=1)
+        news_list = result.get('news_list1', [])
+        if news_list and isinstance(news_list, list):
+            items = []
+            for n in news_list[:5]:
+                date_val = n.get('date', {}) if isinstance(n, dict) else {}
+                title_val = n.get('title', {}) if isinstance(n, dict) else {}
+                source_val = n.get('source', {}) if isinstance(n, dict) else {}
+                show_val = n.get('show_detail', {}) if isinstance(n, dict) else {}
+                items.append({
+                    "date": date_val.get("value", "") if isinstance(date_val, dict) else str(date_val),
+                    "title": title_val.get("value", "") if isinstance(title_val, dict) else str(title_val),
+                    "source": source_val.get("value", "") if isinstance(source_val, dict) else str(source_val),
+                    "url": show_val.get("value", "") if isinstance(show_val, dict) else str(show_val)
+                })
+            news_data[code] = items
+        time.sleep(0.3)
+    except:
+        pass
+print(f"  新闻: {len(news_data)}只股票有数据")
+
+# 📊 两融数据（pywencai tableV1）
+print("📊 两融数据...")
+margin_data = {}
+for code in stock_map:
+    try:
+        mkt = "sz" if code.startswith(("0","3")) else "sh"
+        full_code = mkt + code
+        result = pywencai.get(query=f'{full_code} 融资融券 融资余额 融券余额', query_type='stock', perpage=1)
+        tbl = result.get('tableV1')
+        if tbl is not None and hasattr(tbl, 'to_dict'):
+            rows = tbl.to_dict('records')
+            if rows:
+                r = rows[0]
+                margin_data[code] = {
+                    "融资余额": r.get("融资余额", 0),
+                    "融券余额": r.get("融券余额", 0),
+                    "融资买入额": r.get("融资买入额", 0),
+                    "融资偿还额": r.get("融资偿还额", 0),
+                    "融资余额增速": r.get("融资余额增速", 0),
+                    "融资融券余额": r.get("融资融券余额", 0),
+                }
+        time.sleep(0.3)
+    except:
+        pass
+print(f"  两融: {len(margin_data)}只股票有数据")
+
+# 标记实际流入流出的股票
+inflow_stocks = [c for c,fd in flow_map.items() if fd.get("f62",0) > 50000000]
+outflow_stocks = [c for c,fd in flow_map.items() if fd.get("f62",0) < -50000000]
+
+def calc_rsi(cl, period=14):
+    if len(cl) < period+1: return 50
+    g, l = [], []
+    for i in range(1, len(cl)):
+        d = cl[i]-cl[i-1]; g.append(d if d>0 else 0); l.append(-d if d<0 else 0)
+    ag = sum(g[-period:])/period; al = sum(l[-period:])/period
+    if al==0: return 100
+    return 100-(100/(1+ag/al))
+
+def calc_macd(cl):
+    if len(cl)<26: return 0
+    e=cl[0]; k=2/13
+    for c in cl[1:]: e=c*k+e*(1-k)
+    e2=cl[0]; k2=2/27
+    for c in cl[1:]: e2=c*k2+e2*(1-k2)
+    return e-e2
+
+kline_data = {}
+for i, s in enumerate(data["results"]):
+    c = s["code"]; mc = "1" if c.startswith("6") else "0"
+    try:
+        raw = urllib.request.urlopen(urllib.request.Request("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid="+mc+"."+c+"&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=5&fqt=1&end=20500101&lmt=48&_="+str(int(time.time()*1000)+i), headers={"User-Agent":"Mozilla/5.0"}), timeout=8).read()
+        kd = json.loads(raw).get("data",{}).get("klines",[])
+        cl = [float(k.split(",")[2]) for k in kd if len(k.split(","))>=6]
+        vo = [float(k.split(",")[5]) for k in kd if len(k.split(","))>=6]
+        hi = [float(k.split(",")[3]) for k in kd if len(k.split(","))>=6]
+        lo = [float(k.split(",")[4]) for k in kd if len(k.split(","))>=6]
+        rsi = calc_rsi(cl,14) if len(cl)>=15 else 50
+        dif = calc_macd(cl)
+        vr = (sum(vo[-4:])/4)/(sum(vo[-8:-4])/4) if len(vo)>=8 else 1.0
+        tr = (sum(cl[-4:])/4-sum(cl[:4])/4)/sum(cl[:4])*100 if len(cl)>=8 and sum(cl[:4])>0 else 0
+        ih = max(hi) if hi else 0; il = min(lo) if lo else 0
+        ps = (cl[-1]-il)/(ih-il)*100 if ih!=il else 50
+        kline_data[c] = {"rsi":rsi,"dif":dif,"vol_ratio":vr,"trend":tr,"high":ih,"low":il,"pos":ps,"price":cl[-1] if cl else 0}
+    except: kline_data[c] = {}
+    time.sleep(0.3)
+
+now = time.strftime("%Y-%m-%d %H:%M", time.localtime())
+tv = 0; tc = 0; results = []
+for s in data["results"]:
+    c=s["code"]; n=s["name"]; co=s["cost"]; q=s["qty"]; se=s.get("sector","")
+    td=tencent_data.get(c,{}); fd=flow_map.get(c,{}); kd=kline_data.get(c,{})
+    pr=td.get("price",co); pct=td.get("pct",0)
+    pp=(pr-co)/co*100; v=pr*q; cv=co*q; tv+=v; tc+=cv
+    f62=fd.get("f62",0) or 0; f184=fd.get("f184",0) or 0; f78=fd.get("f78",0) or 0; f72=fd.get("f72",0) or 0; f69=fd.get("f69",0) or 0; f66=fd.get("f66",0) or 0
+    # 计算资金流交叉验证值
+    calc_main = f66 + f72  # 超大单+大单 (都是万元转元)
+    if abs(f62) > 10000 and abs(calc_main) > 10000:
+        dev_pct = abs(f62 - calc_main) / max(abs(f62), abs(calc_main)) * 100
+    else:
+        dev_pct = 0
+    # 方向相反判断
+    opp = (f62 * calc_main < 0) and abs(f62) > 50000
+    rsi=kd.get("rsi",50); dif=kd.get("dif",0); vr=kd.get("vol_ratio",1.0); ps=kd.get("pos",50)
+    rsi_s="超买" if rsi>70 else ("超卖" if rsi<30 else "正常")
+    macd_s="金叉" if dif>0 else "死叉"
+    tr=kd.get("trend",0)
+    ts="盘中走强" if tr>1 else ("盘中走弱" if tr<-1 else "盘中震荡")
+    ps_s="高位" if ps>70 else ("低位" if ps<30 else "中位")
+    re=[]; wa=[]
+    if pct>=9.8: re.append("今日涨停")
+    elif pct>5: re.append("盘中大涨%.1f%%"%pct)
+    elif pct<-5: wa.append("盘中大跌%.1f%%"%pct)
+    elif pct<-3: wa.append("盘中下跌%.1f%%"%pct)
+    if rsi>80: wa.append("RSI超买(%d)"%int(rsi))
+    elif rsi<25: re.append("RSI超卖(%d)"%int(rsi))
+    elif rsi<35: re.append("RSI偏低(%d)"%int(rsi))
+    if dif>0:
+        if pct>0: re.append("MACD金叉+上涨")
+        else: wa.append("MACD金叉但下跌")
+    else:
+        if pct<0: wa.append("MACD死叉+下跌")
+        else: re.append("MACD死叉但反弹")
+    if f62<-50000000: wa.append("主力大幅流出%.0f万"%abs(f62/10000))
+    elif f62<-10000000: wa.append("主力净流出%.0f万"%abs(f62/10000))
+    elif f62>50000000: re.append("主力大幅流入%.0f万"%(f62/10000))
+    elif f62>10000000: re.append("主力净流入%.0f万"%(f62/10000))
+    if vr>1.5: re.append("放量%.1fx"%vr)
+    elif vr<0.7: re.append("缩量%.1fx"%vr)
+    if ps<20 and pct<-3: wa.append("位置低(%d%%)"%int(ps))
+    elif ps>80 and pct>3: re.append("位置高(%d%%)"%int(ps))
+    if pp>20: re.append("盈利%.1f%%"%pp)
+    elif pp<-3: wa.append("亏损%.1f%%"%abs(pp))
+    if pct>=9.8 and pp>=15: ac="🔥强势持有";acr="#c62828";acr2="涨停+盈利丰厚"
+    elif pp>=20 and pct>3: ac="🔥强势持有";acr="#c62828";acr2="趋势完美"
+    elif pp>=10 and pct>0 and len(wa)==0: ac="✅继续持有";acr="#1976d2";acr2="趋势向好"
+    elif pp>=10 and pct>-2: ac="✅正常持有";acr="#666";acr2="正常回调"
+    elif pp>0 and pct<-3 and f62<-50000000: ac="⚠️建议减仓";acr="#f57c00";acr2="主力出逃"
+    elif pp<0 and pct<-3: ac="🔴建议止损";acr="#c62828";acr2="亏损%.1f%%+走弱"%abs(pp)
+    elif pp<0 and pct>0: ac="🔄继续观察";acr="#666";acr2="反弹中未回本"
+    else: ac="✅正常持有";acr="#666";acr2="趋势正常"
+    # 获取数据可靠性信息
+    rel = data_reliability.get(c, {})
+    rel_level = rel.get("level", "未知")
+    rel_reasons = rel.get("reasons", [])
+    
+    # 板块对比
+    sp = 0
+    for sname in [se, se.replace('封测',''), se.replace('显示',''), se.replace('电池','')]:
+        if sname in sector_data:
+            sp = sector_data[sname]["pct"]
+            break
+    results.append({"code":c,"name":n,"sector":se,"price":pr,"pct":pct,"cost":co,"qty":q,"pnl_pct":pp,"val":v,"f62":f62,"f184":f184,"f78":f78,"f72":f72,"f69":f69,"f66":f66,"rsi":rsi,"rsi_s":rsi_s,"dif":dif,"macd_s":macd_s,"trend_s":ts,"vol_ratio":vr,"pos":ps,"pos_s":ps_s,"kline_high":kd.get("high",0),"kline_low":kd.get("low",0),"action":ac,"action_color":acr,"action_reason":acr2,"reasons":re,"warnings":wa,"ai_advice":"","ai_sentiment":0,"ai_summary":"","ai_target":0,"ai_stop":0,"ai_confidence":"","reliability":rel_level,"reliability_reasons":rel_reasons,"turnover":td.get("turnover",0),"amount_wan":td.get("amount_wan",0),"fund_calc":calc_main,"fund_dev":dev_pct,"fund_opp":opp,"sector_pct":sp})
+
+# AI batch analysis
+print("AI批量分析...")
+sd = ""
+for i, r in enumerate(results):
+    rel_tag = ""
+    if r.get("reliability") == "不可靠":
+        rel_tag = "[资金流数据不可靠，忽略]"
+    elif r.get("reliability") == "存疑":
+        rel_tag = "[资金流数据存疑]"
+    sd += "%d. %s(%s) %s 现%.2f(%+.1f%%) 本%.2f(盈亏%+.1f%%) RSI:%d(%s) MACD:%s DIF:%.2f %s 量比:%.1f 主力:%.0f万 %s\n" % (i+1,r["name"],r["code"],r["sector"],r["price"],r["pct"],r["cost"],r["pnl_pct"],int(r["rsi"]),r["rsi_s"],r["macd_s"],r["dif"],r["trend_s"],r["vol_ratio"],r["f62"]/10000, rel_tag)
+try:
+    resp = requests.post("https://api.deepseek.com/v1/chat/completions", headers={"Content-Type":"application/json","Authorization":"Bearer sk-c6e0a0f9b7554680b1c4d81e2e5324e2"}, json={"model":"deepseek-v4-flash","messages":[{"role":"system","content":"A股分析师。输出JSON数组。"},{"role":"user","content":"15只持仓数据：\n%s\n\n返回JSON：[{\"name\":\"股票名\",\"advice\":\"持有/观望/减仓/卖出\",\"sentiment\":0-100,\"summary\":\"15字观点\",\"detailed\":\"30-50字技术+资金分析\",\"target\":目标价,\"stop\":止损价,\"confidence\":\"高/中/低\"}]\n按顺序，只返回JSON。"%sd}],"temperature":0.3,"max_tokens":4000}, timeout=180)
+    content = resp.json().get("choices",[{}])[0].get("message",{}).get("content","").strip()
+    if content.startswith("```"):
+        parts=content.split("```")
+        content=parts[1] if len(parts)>1 else content
+        if content.startswith("json"): content=content[4:]
+    ai_r = json.loads(content)
+    for i, ai in enumerate(ai_r):
+        if i < len(results):
+            results[i]["ai_advice"]=ai.get("advice","")
+            results[i]["ai_sentiment"]=ai.get("sentiment",0)
+            results[i]["ai_summary"]=ai.get("summary","")
+            results[i]["ai_detailed"]=ai.get("detailed","")
+            results[i]["ai_target"]=ai.get("target",0)
+            results[i]["ai_stop"]=ai.get("stop",0)
+            results[i]["ai_confidence"]=ai.get("confidence","")
+            print("  [%d] %s: %s - %s"%(i+1,results[i]["name"],ai.get("advice",""),ai.get("summary","")))
+    print("AI完成")
+except Exception as e:
+    print("AI失败: %s"%str(e)[:80])
+
+results.sort(key=lambda x: x["pct"], reverse=True)
+
+# 🔍 模式识别：每只股票找历史相似形态
+print("🔍 模式识别...")
+pattern_data = {}
+
+from datetime import datetime, timedelta
+today = datetime.now()
+date_90d = (today - timedelta(days=90)).strftime('%Y-%m-%d')
+today_str = today.strftime('%Y-%m-%d')
+
+for code in stock_map:
+    try:
+        mkt = "sh" if code.startswith("6") else "sz"
+        url = f'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={mkt}{code},day,{date_90d},{today_str},120,qfq'
+        raw = json.loads(urllib.request.urlopen(url, timeout=5).read())
+        kd = raw.get('data',{})
+        if not kd or isinstance(kd, list):
+            continue
+        stock_data = kd.get(f'{mkt}{code}', {})
+        if not stock_data:
+            continue
+        days = stock_data.get('qfqday', [])
+        if not days or len(days) < 30:
+            continue
+        # 解析K线 [日期, 开, 收, 高, 低, 量]
+        closes = [float(d[2]) for d in days]
+        highs = [float(d[3]) for d in days]
+        lows = [float(d[4]) for d in days]
+        volumes = [float(d[5]) for d in days]
+        
+        # 计算RSI(14)
+        def calc_rsi(cl, period=14):
+            if len(cl) < period+1: return 50
+            gains, losses = [], []
+            for i in range(1, len(cl)):
+                ch = cl[i] - cl[i-1]
+                gains.append(max(ch, 0))
+                losses.append(max(-ch, 0))
+            ag = sum(gains[-period:])/period
+            al = sum(losses[-period:])/period
+            if al == 0: return 100
+            return 100 - 100/(1+ag/al)
+        
+        # 计算MA5/MA10/MA20
+        def calc_ma(data, period):
+            if len(data) < period: return data[-1]
+            return sum(data[-period:])/period
+        
+        ma5 = calc_ma(closes, 5)
+        ma10 = calc_ma(closes, 10)
+        ma20 = calc_ma(closes, 20)
+        cur_price = closes[-1]
+        cur_rsi = calc_rsi(closes)
+        
+        # 当前状态特征
+        # 1. RSI区间: 超买(>70), 中性(30-70), 超卖(<30)
+        # 2. MACD方向: DIF>DEA(金叉), DIF<DEA(死叉)
+        # 3. 趋势: 价>MA20(上升), 价<MA20(下降)
+        cur_rsi_zone = '超买' if cur_rsi > 70 else ('超卖' if cur_rsi < 30 else '中性')
+        cur_trend = '上升' if cur_price > ma20 else '下降'
+        cur_macd = '金叉' if ma5 > ma10 else '死叉'
+        
+        # 找历史相似（过去60天内除今天外的所有天）
+        similar_returns_5d = []
+        similar_returns_10d = []
+        for idx in range(20, len(closes)-11):  # 留足够后续数据
+            h_rsi = calc_rsi(closes[:idx+1])
+            h_ma5 = calc_ma(closes[:idx+1], 5)
+            h_ma10 = calc_ma(closes[:idx+1], 10)
+            h_ma20 = calc_ma(closes[:idx+1], 20)
+            h_price = closes[idx]
+            
+            h_rsi_zone = '超买' if h_rsi > 70 else ('超卖' if h_rsi < 30 else '中性')
+            h_trend = '上升' if h_price > h_ma20 else '下降'
+            h_macd = '金叉' if h_ma5 > h_ma10 else '死叉'
+            
+            # 匹配条件：RSI区间相同 + 趋势相同
+            if h_rsi_zone == cur_rsi_zone and h_trend == cur_trend and h_macd == cur_macd:
+                ret_5 = (closes[idx+5] - closes[idx]) / closes[idx] * 100
+                ret_10 = (closes[idx+10] - closes[idx]) / closes[idx] * 100
+                similar_returns_5d.append(ret_5)
+                similar_returns_10d.append(ret_10)
+        
+        # 放宽条件：只匹配RSI区间+趋势
+        if len(similar_returns_5d) < 3:
+            for idx in range(20, len(closes)-11):
+                h_rsi = calc_rsi(closes[:idx+1])
+                h_price = closes[idx]
+                h_ma20 = calc_ma(closes[:idx+1], 20)
+                h_rsi_zone = '超买' if h_rsi > 70 else ('超卖' if h_rsi < 30 else '中性')
+                h_trend = '上升' if h_price > h_ma20 else '下降'
+                if h_rsi_zone == cur_rsi_zone and h_trend == cur_trend:
+                    ret_5 = (closes[idx+5] - closes[idx]) / closes[idx] * 100
+                    ret_10 = (closes[idx+10] - closes[idx]) / closes[idx] * 100
+                    similar_returns_5d.append(ret_5)
+                    similar_returns_10d.append(ret_10)
+        
+        # 统计
+        if similar_returns_5d:
+            avg_5 = sum(similar_returns_5d) / len(similar_returns_5d)
+            avg_10 = sum(similar_returns_10d) / len(similar_returns_10d)
+            win_5 = sum(1 for r in similar_returns_5d if r > 0) / len(similar_returns_5d) * 100
+            win_10 = sum(1 for r in similar_returns_10d if r > 0) / len(similar_returns_10d) * 100
+            pattern_data[code] = {
+                "rsi": round(cur_rsi, 1),
+                "rsi_zone": cur_rsi_zone,
+                "trend": cur_trend,
+                "macd": cur_macd,
+                "ma5": round(ma5, 2),
+                "ma10": round(ma10, 2),
+                "ma20": round(ma20, 2),
+                "sample_5d": len(similar_returns_5d),
+                "avg_5d": round(avg_5, 2),
+                "win_5d": round(win_5, 1),
+                "sample_10d": len(similar_returns_10d),
+                "avg_10d": round(avg_10, 2),
+                "win_10d": round(win_10, 1),
+            }
+        time.sleep(0.2)
+    except Exception as e:
+        pass
+print(f"  模式识别: {len(pattern_data)}只股票有数据")
+
+# Build HTML using .format() to avoid %% issues
+css = """* {margin:0;padding:0;box-sizing:border-box}
+body {font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#333;padding:12px;font-size:13px}
+.container {max-width:1200px;margin:0 auto}
+.header {background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border-radius:8px;padding:14px 18px;margin-bottom:12px}
+.header h1 {font-size:17px;margin-bottom:4px}
+.header p {font-size:12px;opacity:.8}
+.summary {display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.sc {background:#fff;border-radius:6px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.sc .v {font-size:18px;font-weight:bold}
+.sc .l {font-size:11px;color:#888;margin-top:2px}
+.section {background:#fff;border-radius:8px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.section h2 {font-size:15px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e0e0e0}
+.stk {background:#fafafa;border-radius:6px;padding:10px;margin-bottom:8px;border-left:3px solid #ddd}
+.stk.strong {border-left-color:#c62828;background:#fff5f5}
+.stk.hold {border-left-color:#1976d2;background:#f5f9ff}
+.stk.warn {border-left-color:#f57c00;background:#fff8f0}
+.stk.danger {border-left-color:#c62828;background:#fff0f0}
+.sh {display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px}
+.sn {font-size:14px;font-weight:bold}
+.sd {display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin:6px 0;font-size:12px}
+.sd .i {background:#fff;padding:4px 6px;border-radius:4px}
+.sd .lb {color:#888;font-size:10px}
+.sd .vl {font-weight:bold;font-size:12px}
+.analysis-row {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.ar .title {font-size:12px;font-weight:bold;margin-bottom:4px}
+.ar .box {background:#fff;border-radius:4px;padding:8px;font-size:12px;line-height:1.6}
+.ar.rule .title {color:#1976d2}
+.ar.ai .title {color:#7b1fa2}
+.ar .re {color:#c62828;padding:2px 0;border-left:2px solid #c62828;padding-left:6px;margin:2px 0}
+.ar .wa {color:#2e7d32;padding:2px 0;border-left:2px solid #4caf50;padding-left:6px;margin:2px 0}
+.ar .ai-box {background:linear-gradient(135deg,#e8f5e9,#f3e5f5);border-radius:4px;padding:8px;border-left:3px solid #7b1fa2}
+.ar .ast {font-size:13px;font-weight:bold;color:#4a148c;margin:3px 0}
+.ar .am {display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-top:4px}
+.ar .am span {background:#fff;padding:2px 6px;border-radius:3px}
+.cb {display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.cb .rb {background:#e3f2fd;border-radius:4px;padding:6px;border-left:3px solid #1976d2;font-size:12px}
+.cb .as {background:#f3e5f5;border-radius:4px;padding:6px;border-left:3px solid #7b1fa2;font-size:12px}
+.abox {border-radius:4px;padding:6px 10px;margin-top:6px;font-weight:bold;font-size:13px}
+.tag {display:inline-block;padding:1px 5px;border-radius:3px;font-size:11px}
+.tr {background:#ffebee;color:#c62828}
+.tg {background:#e8f5e9;color:#2e7d32}
+.tb {background:#e3f2fd;color:#1565c0}
+.to {background:#fff3e0;color:#e65100}
+.red {color:#c62828;font-weight:bold}
+.green {color:#2e7d32;font-weight:bold}
+.gray {color:#666}
+table {width:100%;border-collapse:collapse;font-size:12px}
+th {background:#f5f5f5;padding:6px 5px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:11px}
+td {padding:6px 5px;border-bottom:1px solid #f0f0f0}
+tr:hover {background:#f9f9f9}
+.ft {text-align:center;padding:12px;color:#999;font-size:11px}
+.ms {background:linear-gradient(135deg,#e3f2fd,#e8eaf6);border-radius:6px;padding:10px;margin-bottom:12px}
+.ms h3 {margin-bottom:4px;font-size:14px}
+.ms p {font-size:12px;line-height:1.7}
+.str {color:#c62828;font-weight:bold;font-size:15px}
+.wk {color:#2e7d32;font-weight:bold;font-size:15px}
+@media(max-width:768px) { .sd {grid-template-columns:repeat(4,1fr)} .analysis-row {grid-template-columns:1fr} .cb {grid-template-columns:1fr} }"""
+
+H = []
+H.append('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>三维分析报告</title>')
+H.append('<style>' + css + '</style></head><body><div class="container">')
+
+H.append('<div class="header"><h1>🕵️‍♂️ StockHolmes 三维分析报告（含AI）</h1>')
+H.append('<p>5分钟K线 + 实时资金流 + 5档盘口 + AI深度分析 | ' + now + '</p></div>')
+
+# 📊 大盘指数摘要
+if market_indices:
+    mi_html = '<div class="section" style="padding:10px"><h2 style="margin-bottom:6px;font-size:15px">📈 大盘指数</h2><div style="display:flex;gap:10px;flex-wrap:wrap">'
+    for iname, idata in market_indices.items():
+        ic = "red" if idata["pct"] >= 0 else "green"
+        mi_html += '<div style="flex:1;min-width:120px;background:#f9f9f9;border-radius:4px;padding:6px 10px;text-align:center">'
+        mi_html += '<div style="font-size:11px;color:#888">' + iname + '</div>'
+        mi_html += '<div class="' + ic + '" style="font-size:15px;font-weight:bold">' + "{:.2f}".format(idata["price"]) + '</div>'
+        mi_html += '<div class="' + ic + '" style="font-size:12px">' + "{:+.2f}".format(idata["pct"]) + '%</div></div>'
+    mi_html += '</div></div>'
+    H.append(mi_html)
+
+H.append('<div class="summary">')
+H.append('<div class="sc"><div class="v">' + str(len(results)) + '</div><div class="l">持仓数</div></div>')
+H.append('<div class="sc"><div class="v">¥' + "{:,.0f}".format(tv) + '</div><div class="l">总市值</div></div>')
+profit = tv - tc
+H.append('<div class="sc"><div class="v ' + ("red" if profit>=0 else "green") + '">¥' + "{:+,.0f}".format(profit) + '</div><div class="l">总盈亏</div></div>')
+H.append('<div class="sc"><div class="v ' + ("red" if profit>=0 else "green") + '">' + "{:+.1f}".format(profit/tc*100) + '%</div><div class="l">盈亏比</div></div>')
+up_c = sum(1 for r in results if r["pct"]>0)
+dn_c = sum(1 for r in results if r["pct"]<0)
+H.append('<div class="sc"><div class="v red">' + str(up_c) + '</div><div class="l">上涨</div></div>')
+H.append('<div class="sc"><div class="v green">' + str(dn_c) + '</div><div class="l">下跌</div></div>')
+H.append('</div>')
+
+# Market summary
+ss=[r for r in results if r["pct"]>=3]; ws=[r for r in results if r["pct"]<-3]
+tone="偏强" if len(ss)>len(ws) else ("偏弱" if len(ws)>len(ss) else "震荡分化")
+bo=[r for r in results if r["f62"]<-50000000]
+bi=[r for r in results if r["f62"]>50000000]
+profit_c=sum(1 for r in results if r["pnl_pct"]>=0)
+loss_c=sum(1 for r in results if r["pnl_pct"]<0)
+ms = '<div class="ms"><h3>📊 盘面总结</h3><p>'
+ms += '今日大盘' + tone + '。持仓' + str(len(results)) + '只，'
+ms += '<span class="str">' + str(len(ss)) + '</span>只涨超3%，<span class="wk">' + str(len(ws)) + '</span>只跌超3%。'
+ms += '盈利' + str(profit_c) + '，亏损' + str(loss_c) + '。'
+if bi: ms += '<br>🟢 主力大幅流入：' + '、'.join([r["name"]+'('+"{:+.0f}".format(r["f62"]/10000)+'w)' for r in bi]) + '。'
+if bo: ms += '<br>🔴 主力大幅流出：' + '、'.join([r["name"]+'('+"{:+.0f}".format(r["f62"]/10000)+'w)' for r in bo]) + '。'
+ms += '<br>最强：' + results[0]["name"] + '(' + ("{:+.1f}".format(results[0]["pct"])) + '%)，最弱：' + results[-1]["name"] + '(' + ("{:+.1f}".format(results[-1]["pct"])) + '%)。'
+ac2=sum(r.get("ai_sentiment",0) for r in results if r.get("ai_sentiment",0)>0)
+cc=sum(1 for r in results if r.get("ai_sentiment",0)>0)
+if cc>0: ms += '<br>🤖 AI平均情感: ' + str(int(ac2/cc)) + '/100'
+ms += '</p></div>'
+H.append(ms)
+
+# Stock cards
+H.append('<div class="section"><h2>🔍 逐只分析</h2>')
+for r in results:
+    if r["pct"]>=9.8: cs="strong"
+    elif r["pct"]>=3: cs="strong"
+    elif r["pct"]<-5: cs="danger"
+    elif r["pct"]<-3: cs="warn"
+    elif r["pnl_pct"]<-3: cs="warn"
+    else: cs="hold"
+    pc="red" if r["pnl_pct"]>=0 else "green"
+    dc="red" if r["pct"]>0 else ("green" if r["pct"]<0 else "gray")
+    fc="red" if r["f62"]>0 else ("green" if r["f62"]<0 else "gray")
+    if r["rsi"]>70 or r["rsi"]<30: rt_tag='to'
+    else: rt_tag='tb'
+    rt = '<span class="tag ' + rt_tag + '">' + str(int(r["rsi"])) + ' ' + r["rsi_s"] + '</span>'
+    
+    # 成交量和成交额
+    vol_val = r.get("vol", 0)
+    amt_wan = r.get("amount_wan", 0)
+    turnover = r.get("turnover", 0)
+    vol_str = "{:.0f}手".format(vol_val) if vol_val > 0 else "-"
+    amt_str = "{:.0f}万".format(amt_wan) if amt_wan > 0 else "-"
+    
+    # 资金流可靠性
+    rel_tag = ""
+    if r.get("reliability") == "不可靠":
+        rel_tag = ' <span style="font-size:9px;color:#999">(⚠️存疑)</span>'
+    elif r.get("reliability") == "存疑":
+        rel_tag = ' <span style="font-size:9px;color:#999">(❓)</span>'
+    
+    s = '<div class="stk ' + cs + '">'
+    s += '<div class="sh"><div><span class="sn">' + r["name"] + '</span> <span style="font-size:11px;color:#888">(' + r["code"] + ')·' + r["sector"] + '</span>'
+    sp = r.get("sector_pct", 0)
+    if sp != 0:
+        spc = "red" if r["pct"] > sp else "green"
+        s += ' <span style="font-size:10px;color:#888">| 板块' + "{:+.1f}".format(sp) + '%</span>'
+        if r["pct"] > sp:
+            s += ' <span style="font-size:10px;color:#c62828;font-weight:bold">👆跑赢</span>'
+        else:
+            s += ' <span style="font-size:10px;color:#2e7d32;font-weight:bold">👇跑输</span>'
+    s += '</div>'
+    s += '<div><span class="' + dc + '" style="font-size:14px">' + "{:+.2f}".format(r["pct"]) + '%</span> <span class="' + pc + '" style="font-size:12px;margin-left:6px">盈亏' + "{:+.1f}".format(r["pnl_pct"]) + '%</span></div></div>'
+    s += '<div class="sd">'
+    s += '<div class="i"><div class="lb">现价</div><div class="vl">' + "{:.2f}".format(r["price"]) + '</div></div>'
+    s += '<div class="i"><div class="lb">成本</div><div class="vl">' + "{:.2f}".format(r["cost"]) + '</div></div>'
+    s += '<div class="i"><div class="lb">市值</div><div class="vl">¥' + "{:,.0f}".format(r["val"]) + '</div></div>'
+    s += '<div class="i"><div class="lb">高低</div><div class="vl">' + "{:.2f}".format(r["kline_high"]) + '/' + "{:.2f}".format(r["kline_low"]) + '</div></div>'
+    s += '<div class="i"><div class="lb">RSI</div><div class="vl">' + rt + '</div></div>'
+    s += '<div class="i"><div class="lb">MACD</div><div class="vl">' + r["macd_s"] + '(DIF:' + "{:.2f}".format(r["dif"]) + ')</div></div>'
+    s += '<div class="i"><div class="lb">换手</div><div class="vl">' + "{:.1f}".format(turnover) + '%</div></div>'
+    s += '<div class="i"><div class="lb">成交</div><div class="vl">' + amt_str + '</div></div>'
+    s += '<div class="i"><div class="lb">量比</div><div class="vl">' + "{:.1f}".format(r["vol_ratio"]) + '</div></div>'
+    
+    # 资金流详情：存疑时显示计算值
+    if r.get("fund_opp"):
+        fund_detail = '主力净:' + "{:+.0f}".format(r["f62"]/10000) + '万 | 超大+大:' + "{:+.0f}".format(r["fund_calc"]/10000) + '万 | <span style="color:#e65100">方向相反</span>'
+    elif r.get("fund_dev", 0) > 50:
+        fund_detail = '主力净:' + "{:+.0f}".format(r["f62"]/10000) + '万 | 超大+大:' + "{:+.0f}".format(r["fund_calc"]/10000) + '万 | <span style="color:#e65100">偏差' + "{:.0f}".format(r["fund_dev"]) + '%</span>'
+    else:
+        fund_detail = "{:+.0f}".format(r["f62"]/10000) + '万'
+    
+    fund_bg = '#fff3e0' if (r.get("fund_opp") or r.get("fund_dev", 0) > 50) else '#fff'
+    s += '<div class="i" style="grid-column:span 2;background:' + fund_bg + '"><div class="lb">主力净流' + rel_tag + '</div><div class="vl ' + fc + '" style="font-size:11px">' + fund_detail + '</div></div>'
+    s += '</div>'
+    
+    # 规则+AI 并列
+    has_rule = bool(r["reasons"] or r["warnings"])
+    has_ai = bool(r.get("ai_summary"))
+    if has_rule or has_ai:
+        s += '<div class="analysis-row">'
+        if has_rule:
+            s += '<div class="ar rule"><div class="title">📐 StockHolmes规则</div><div class="box">'
+            if r["reasons"]:
+                s += '<div class="re"><b>✅利好：</b><br>'
+                for x in r["reasons"]: s += '&nbsp;&nbsp;• ' + x + '<br>'
+                s += '</div>'
+            if r["warnings"]:
+                s += '<div class="wa"><b>⚠️风险：</b><br>'
+                for x in r["warnings"]: s += '&nbsp;&nbsp;• ' + x + '<br>'
+                s += '</div>'
+            s += '</div></div>'
+        if has_ai:
+            s += '<div class="ar ai"><div class="title">🤖 AI深度分析</div><div class="ai-box">'
+            s += '<div class="ast">💡 ' + r["ai_summary"] + '</div>'
+            if r.get("ai_detailed"):
+                s += '<div style="font-size:12px;line-height:1.7;margin:6px 0;padding:6px;background:rgba(255,255,255,0.6);border-radius:4px">' + r["ai_detailed"] + '</div>'
+            s += '<div class="am">'
+            s += '<span>建议:' + r["ai_advice"] + '</span>'
+            s += '<span>情感:' + str(r["ai_sentiment"]) + '/100</span>'
+            s += '<span>目标:' + "{:.2f}".format(r.get("ai_target") or 0) + '</span>'
+            s += '<span>止损:' + "{:.2f}".format(r.get("ai_stop") or 0) + '</span>'
+            s += '<span>信心:' + r.get("ai_confidence","?") + '</span>'
+            s += '</div></div></div>'
+        s += '</div>'
+        # 对比栏：规则 vs AI
+        if has_ai:
+            s += '<div class="cb">'
+            s += '<div class="rb"><b>📐 规则:</b> ' + r["action"] + ' <small>' + r["action_reason"] + '</small></div>'
+            s += '<div class="as"><b>🤖 AI:</b> ' + r["ai_advice"] + ' <small>' + r["ai_summary"] + '</small></div>'
+            s += '</div>'
+    
+    # 底部操作建议：优先用AI，无AI时用规则
+    if r.get("ai_advice"):
+        ai_map = {"买入":["🟢 买入","#2e7d32"],"增持":["🟢 买入","#2e7d32"],"持有":["✅ 持有","#1976d2"],"观望":["⏳ 观望","#e65100"],"减仓":["⚠️ 减仓","#c62828"],"卖出":["🔴 卖出","#c62828"]}
+        di = ai_map.get(r["ai_advice"],["🤖 "+r["ai_advice"],"#666"])
+        s += '<div class="abox" style="background:' + di[1] + '12;border-left:4px solid ' + di[1] + ';color:' + di[1] + '">'
+        s += di[0] + ' — 🤖 ' + r["ai_summary"]
+        s += ' <span style="font-weight:normal;font-size:11px">| 情感' + str(r["ai_sentiment"]) + ' 目标' + "{:.2f}".format(r["ai_target"] or 0) + ' 止损' + "{:.2f}".format(r["ai_stop"] or 0) + ' 信心' + r.get("ai_confidence","?") + '</span>'
+        s += '</div>'
+    else:
+        s += '<div class="abox" style="background:' + r["action_color"] + '15;border-left:4px solid ' + r["action_color"] + ';color:' + r["action_color"] + '">' + r["action"] + ' — ' + r["action_reason"] + '</div>'
+    s += '</div>'
+    H.append(s)
+H.append('</div>')
+
+# 📰 新闻/公告模块
+has_news = any(len(v) > 0 for v in news_data.values())
+if has_news:
+    H.append('<div class="section"><h2>📰 持仓股近期新闻</h2>')
+    for r in results:
+        code = r["code"]
+        nlist = news_data.get(code, [])
+        if not nlist:
+            continue
+        H.append('<div style="background:#fff;border-radius:6px;padding:8px 12px;margin:6px 0;border-left:3px solid #1976d2">')
+        H.append('<b style="font-size:13px">' + r["name"] + '(' + code + ')</b>')
+        H.append('<div style="font-size:12px;line-height:1.8;margin-top:4px">')
+        for n in nlist[:3]:
+            tag = ''
+            if n.get('source'):
+                tag = '<span style="color:#999;font-size:11px">[' + n['source'] + ']</span>'
+            link = n.get('url', '')
+            title = n.get('title', '')
+            date = n.get('date', '')
+            if link and link != 'None' and link.startswith('http'):
+                H.append('• <a href="' + link + '" target="_blank" style="color:#333">' + title + '</a> ' + tag + ' <span style="color:#999">' + date + '</span><br>')
+            else:
+                H.append('• ' + title + ' ' + tag + ' <span style="color:#999">' + date + '</span><br>')
+        H.append('</div></div>')
+    H.append('</div>')
+
+# 两融数据表格
+has_margin = len(margin_data) > 0
+if has_margin:
+    H.append('<div class="section"><h2>📊 融资融券数据</h2><table><tr><th>股票</th><th>融资余额</th><th>融资买入额</th><th>融资偿还额</th><th>融资余额增速</th><th>融券余额</th><th>两融余额</th></tr>')
+    for r in sorted(results, key=lambda x: x["code"]):
+        code = r["code"]
+        if code not in margin_data:
+            continue
+        m = margin_data[code]
+        fc3 = "red" if m.get("融资余额增速", 0) > 0 else "green"
+        row = '<tr><td><b>' + r["name"] + '</b></td>'
+        row += '<td>' + "{:.2f}".format(m.get("融资余额",0)/1e8) + '亿</td>'
+        row += '<td>' + "{:.2f}".format(m.get("融资买入额",0)/1e8) + '亿</td>'
+        row += '<td>' + "{:.2f}".format(m.get("融资偿还额",0)/1e8) + '亿</td>'
+        row += '<td class="' + fc3 + '">' + "{:+.2f}".format(m.get("融资余额增速",0)) + '%</td>'
+        row += '<td>' + "{:.2f}".format(m.get("融券余额",0)/1e8) + '亿</td>'
+        row += '<td>' + "{:.2f}".format(m.get("融资融券余额",0)/1e8) + '亿</td>'
+        row += '</tr>'
+        H.append(row)
+    H.append('</table></div>')
+
+# Fund flow table
+H.append('<div class="section"><h2>💰 主力流向</h2><table><tr><th>股票</th><th>主力净流入</th><th>占比</th><th>超大单</th><th>大单</th><th>中单</th><th>小单</th></tr>')
+for r in sorted(results, key=lambda x: x["f62"], reverse=True):
+    if r["f62"]==0: continue
+    fc2="red" if r["f62"]>0 else "green"
+    row = '<tr><td><b>' + r["name"] + '</b></td>'
+    row += '<td class="' + fc2 + '">' + "{:+.0f}".format(r["f62"]/10000) + '万</td>'
+    row += '<td class="' + fc2 + '">' + "{:+.1f}".format(r["f184"]) + '%</td>'
+    row += '<td class="' + fc2 + '">' + "{:+.0f}".format(r["f78"]/10000) + '万</td>'
+    row += '<td class="' + fc2 + '">' + "{:+.0f}".format(r["f72"]/10000) + '万</td>'
+    row += '<td class="' + fc2 + '">' + "{:+.0f}".format(r["f69"]/10000) + '万</td>'
+    row += '<td class="' + fc2 + '">' + "{:+.0f}".format(r["f66"]/10000) + '万</td>'
+    row += '</tr>'
+    H.append(row)
+H.append('</table></div>')
+
+# Summary table
+
+# 模式识别模块
+has_pattern = len(pattern_data) > 0
+if has_pattern:
+    H.append('<div class="section"><h2>🔍 历史模式识别</h2>')
+    H.append('<p style="font-size:11px;color:#888;margin-bottom:8px">基于过去60天K线，寻找当前技术形态的历史相似日，统计后续涨跌胜率</p>')
+    H.append('<table><tr><th>股票</th><th>当前状态</th><th>RSI</th><th>相似样本</th><th>5日后平均涨幅</th><th>5日胜率</th><th>10日平均涨幅</th><th>10日胜率</th></tr>')
+    for r in results:
+        code = r["code"]
+        if code not in pattern_data:
+            continue
+        p = pattern_data[code]
+        # 状态标签
+        rsi_c = "red" if p["rsi_zone"] == "超买" else ("green" if p["rsi_zone"] == "超卖" else "")
+        trend_c = "red" if p["trend"] == "上升" else "green"
+        macd_c = "red" if p["macd"] == "金叉" else "green"
+        state_str = '<span class="' + rsi_c + '">' + p["rsi_zone"] + '</span>'
+        state_str += ' <span class="' + trend_c + '">' + p["trend"] + '</span>'
+        state_str += ' <span class="' + macd_c + '">' + p["macd"] + '</span>'
+        
+        # 5日胜率
+        w5c = "red" if p["win_5d"] >= 60 else ("green" if p["win_5d"] <= 40 else "")
+        w10c = "red" if p["win_10d"] >= 60 else ("green" if p["win_10d"] <= 40 else "")
+        a5c = "red" if p["avg_5d"] > 0 else "green"
+        a10c = "red" if p["avg_10d"] > 0 else "green"
+        
+        row = '<tr><td><b>' + r["name"] + '</b></td>'
+        row += '<td>' + state_str + '</td>'
+        row += '<td>' + str(p["rsi"]) + '</td>'
+        row += '<td>' + str(p["sample_5d"]) + '次</td>'
+        row += '<td class="' + a5c + '">' + "{:+.2f}".format(p["avg_5d"]) + '%</td>'
+        row += '<td class="' + w5c + '">' + str(p["win_5d"]) + '%</td>'
+        row += '<td class="' + a10c + '">' + "{:+.2f}".format(p["avg_10d"]) + '%</td>'
+        row += '<td class="' + w10c + '">' + str(p["win_10d"]) + '%</td>'
+        row += '</tr>'
+        H.append(row)
+    H.append('</table></div>')
+
+H.append('<div class="section"><h2>📋 建议汇总</h2><table><tr><th>建议</th><th>股票</th><th>规则理由</th><th>AI建议</th><th>情感分</th></tr>')
+ag={}
+for r in results:
+    k=r["action"]
+    if k not in ag: ag[k]=[]
+    ag[k].append(r)
+for action, stocks in ag.items():
+    names="、".join([s["name"]+"("+s["code"]+")" for s in stocks])
+    reasons="；".join([s["action_reason"] for s in stocks])
+    ai_l=[]
+    sen_l=[]
+    for s in stocks:
+        if s.get("ai_advice"):
+            ai_l.append(s["ai_advice"]+"("+str(s.get("ai_sentiment",0))+")")
+            sen_l.append(str(s.get("ai_sentiment",0)))
+        else:
+            ai_l.append("—")
+            sen_l.append("—")
+    H.append('<tr><td><b>'+action+'</b></td><td>'+names+'</td><td>'+reasons+'</td><td>'+'；'.join(ai_l)+'</td><td>'+'；'.join(sen_l)+'</td></tr>')
+H.append('</table></div>')
+
+H.append('<div class="ft"><p>🕵️‍♂️ StockHolmes · 5分钟K线+实时资金流+腾讯5档盘口+LLM AI分析</p>')
+H.append('<p>生成: '+now+'</p>')
+H.append('<p>⚠️ 仅供参考，不构成投资建议。股市有风险，投资需谨慎。</p></div></div></body></html>')
+
+full = "\n".join(H)
+ts = time.strftime("%Y%m%d_%H%M", time.localtime())
+fn = "output/boss/三维分析报告_" + ts + ".html"
+with open(fn, "w", encoding="utf-8") as f:
+    f.write(full)
+with open("output/boss/三维分析报告_最新.html", "w", encoding="utf-8") as f:
+    f.write(full)
+print("✅ AI报告: " + fn + " (" + str(os.path.getsize(fn)) + " bytes)")
