@@ -42,8 +42,6 @@ tr:hover td{background:#f0f4ff}
 .stock-name:hover{color:#0652DD}
 
 
-
-
 .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
 .tg{background:#e8f8f0;color:#00b894}.ty{background:#fef3e2;color:#e17055}.tr{background:#fce8e8;color:#d63031}.tp{background:#eee8f5;color:#6c5ce7}
 .rl{color:#0984e3;text-decoration:none;font-size:11px;cursor:pointer}
@@ -57,7 +55,6 @@ tr:hover td{background:#f0f4ff}
 .price-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
 .price-box{background:#f8f9fa;border-radius:6px;padding:6px 10px;flex:1;min-width:70px;text-align:center;border:1px solid #eee}
 .price-box .pl{font-size:10px;color:#999}.price-box .pv{font-size:15px;font-weight:700}
-
 .tech-item{text-align:center}
 .tech-item .tl{font-size:10px;color:#999}.tech-item .tv{font-size:12px;font-weight:600}
 .advice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
@@ -129,9 +126,8 @@ tr:hover td{background:#f0f4ff}
   /* 核心指标3列网格 */
   .card-mid{display:grid !important;grid-template-columns:1fr 1fr 1fr !important;gap:4px !important;flex-wrap:nowrap !important}
   .card-mid *{max-width:100% !important}
-
-  
-  .tech-item *{max-width:100%}
+  /* 技术指标3列 */
+    .tech-item *{max-width:100%}
   /* 折叠区/盘口/资金/资讯/异动/风险 */
   .collapsible{font-size:10px;padding:4px 5px;max-width:100%}
   .money-flow{font-size:9px;padding:4px}
@@ -261,8 +257,13 @@ async function loadP() {
     renderSummary(); renderTable(); renderCards();
     document.getElementById('updateTime').textContent = '最后更新: ' + new Date().toLocaleString('zh-CN');
     // 批量预检查报告链接
-    
+    // batchCheckReports();
   } catch(e) { toast('加载失败: ' + e.message, 'error'); }
+}
+
+      });
+    }
+  } catch(e) { /* silent */ }
 }
 
 
@@ -276,7 +277,7 @@ async function runAiAnalysis() {
       toast('AI分析完成: ' + r.analyzed + ' 只股票', 'success');
       P = r.data;
       renderSummary(); renderTable(); renderCards();
-      
+      // batchCheckReports();
     } else if (r.failed > 0) {
       toast('AI分析失败 ' + r.failed + ' 只（LLM调用异常，可稍后重试）', 'error');
     }
@@ -337,10 +338,7 @@ function renderTable() {
     const aiA = (r.ai_analysis && r.ai_analysis.operation_advice) || '--';
     html += '<tr>' +
       '<td>' + (i + 1) + '</td>' +
-      '<td class="sn"><span class="stock-name">' + esc(r.name) + '</span>' +
-      '<button class="btn btn-primary btn-xs" onclick="refreshStock(&#39;" + r.code + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:4px;line-height:1.6">&#x1F504;</button>' +
-      '<button class="btn btn-sm" onclick="editStock(&#39;" + esc(r.code) + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:2px">&#x270F;&#xFE0F;</button>' +
-      '<button class="btn btn-sm" onclick="delStock(&#39;" + esc(r.code) + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:2px;color:#c0392b">&#x2716;</button></td>' +
+      '<td class="sn"><span class="stock-name">' + esc(r.name) + '</span><button class="btn btn-primary btn-xs" onclick="refreshStock(\'" + r.code + "')" style="padding:0 5px;font-size:10px;margin-left:4px;line-height:1.6">&#x1F504;</button><button class="btn btn-sm" onclick="editStock(\'" + esc(r.code) + "')" style="padding:0 5px;font-size:10px;margin-left:2px">&#x270F;&#xFE0F;</button><button class="btn btn-sm" onclick="delStock(\'" + esc(r.code) + "')" style="padding:0 5px;font-size:10px;margin-left:2px;color:#c0392b">&#x2716;</button></td>' +
       '<td>' + esc(r.sector || '--') + '</td>' +
       '<td>' + (r.qty || 0) + '</td>' +
       '<td>' + (r.cost ? r.cost.toFixed(2) : '--') + '</td>' +
@@ -395,14 +393,11 @@ function renderCards() {
     html += '<div class="scard" style="width:100%;max-width:100%;min-width:0">' +
       // ---- TOP: name + code + badge + buttons ----
       '<div class="card-top" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid #eee;margin-bottom:6px">' +
-        '<span class="stock-name" style="font-weight:700;font-size:12px;color:#2d3436">' + nm + '</span>' +
-        '<button class="btn btn-primary btn-xs" onclick="refreshStock(&#39;" + uid + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:auto;line-height:1.6">&#x1F504; 刷新</button>' +
-        '<button class="btn btn-sm" onclick="editStock(&#39;" + esc(uid) + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:2px">&#x270F;&#xFE0F;</button>' +
-        '<button class="btn btn-sm" onclick="delStock(&#39;" + esc(uid) + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:2px;color:#c0392b">&#x2716;</button>' +
-        '<span style="color:#999;font-size:11px">' + cd + '</span>' +
+        '<span class="stock-name" style="font-weight:700;font-size:12px;color:#2d3436">' + nm + '</span><button class="btn btn-primary btn-xs" onclick="refreshStock(\'" + uid + "')" style="padding:0 5px;font-size:10px;margin-left:auto;line-height:1.6">&#x1F504; 刷新</button><button class="btn btn-sm" onclick="editStock(\'" + esc(uid) + "')" style="padding:0 5px;font-size:10px;margin-left:2px">&#x270F;&#xFE0F;</button><button class="btn btn-sm" onclick="delStock(\'" + esc(uid) + "')" style="padding:0 5px;font-size:10px;margin-left:2px;color:#c0392b">&#x2716;</button>' +
+
 
         '<span class="' + shClass + '" style="margin-left:4px">' + esc(shLabel) + '</span>' +
-
+        '<span class="rpt-refresh" onclick="regenerateReport(\'' + uid + "')\" style=\"margin-left:auto;cursor:pointer;font-size:12px\" title=\"刷新报告\">&#x1F504;</span>" +
         '<button class="btn btn-ghost btn-sm" onclick="editStock(\'' + cd + "')\" style=\"padding:2px 8px;font-size:11px\">&#x270F;&#xFE0F;</button>" +
         '<button class="btn btn-danger btn-sm" onclick="delStock(\'' + cd + "')\" style=\"padding:2px 8px;font-size:11px\">&#x2716;</button></div>" +
       // ---- KEY STATS ----
@@ -422,7 +417,7 @@ function renderCards() {
           (s.rsi_status ? '<div style="font-size:10px;line-height:1.5">&bull; RSI: ' + esc(s.rsi_status) + '</div>' : '') +
           (s.money_flow_status ? '<div style="font-size:10px;line-height:1.5">&bull; 资金: ' + esc(s.money_flow_status) + '</div>' : '') +
           (s.order_book_status ? '<div style="font-size:10px;line-height:1.5">&bull; 盘口: ' + esc(s.order_book_status) + '</div>' : '') + reasons + '</div>' +
-
+        '<div class="tech-row" style="margin-top:4px">' +
           '<div class="tech-item"><div class="tl">MA5</div><div class="tv">' + (t.ma5 || '--') + '</div></div>' +
           '<div class="tech-item"><div class="tl">MA10</div><div class="tv">' + (t.ma10 || '--') + '</div></div>' +
           '<div class="tech-item"><div class="tl">MA20</div><div class="tv">' + (t.ma20 || '--') + '</div></div>' +
@@ -458,7 +453,7 @@ function toggleCol(id) {
   el.classList.toggle('collapse-show');
 }// ===== 盘中异动分析 =====
 
-
+async 
 // ===== Single Stock Refresh =====
 function refreshStock(code) {
   if (!code) return;
@@ -467,10 +462,10 @@ function refreshStock(code) {
   fetch('/api/' + UK + '/portfolio/refresh-single/' + code)
     .then(function(r) { return r.json(); })
     .then(function(r) {
-      if (r.success) { toast(code + ' \u5DF2\u5237\u65B0', 'success'); loadP(); }
-      else { toast(r.error || '\u5237\u65B0\u5931\u8D25: ' + code, 'error'); }
+      if (r.success) { toast(code + ' 已刷新', 'success'); loadP(); }
+      else { toast(r.error || '刷新失败: ' + code, 'error'); }
     })
-    .catch(function(e) { toast('\u5237\u65B0\u5931\u8D25: ' + e.message, 'error'); })
+    .catch(function(e) { toast('刷新失败: ' + e.message, 'error'); })
     .finally(function() { if (btn) setTimeout(function() { btn.disabled = false; btn.innerHTML = '\u{1F504}'; }, 3000); });
 }
 
@@ -481,44 +476,15 @@ function refreshWlStock(code) {
   fetch('/api/' + UK + '/watchlist/refresh-single/' + code)
     .then(function(r) { return r.json(); })
     .then(function(r) {
-      if (r.success) { toast(code + ' \u5DF2\u5237\u65B0', 'success'); loadW(); }
-      else { toast(r.error || '\u5237\u65B0\u5931\u8D25: ' + code, 'error'); }
+      if (r.success) { toast(code + ' 已刷新', 'success'); loadW(); }
+      else { toast(r.error || '刷新失败: ' + code, 'error'); }
     })
-    .catch(function(e) { toast('\u5237\u65B0\u5931\u8D25: ' + e.message, 'error'); })
+    .catch(function(e) { toast('刷新失败: ' + e.message, 'error'); })
     .finally(function() { if (btn) setTimeout(function() { btn.disabled = false; btn.innerHTML = '\u{1F504}'; }, 3000); });
 }
 
-
-// ===== Single Stock Refresh =====
-function refreshStock(code) {
-  if (!code) return;
-  var btn = event && event.target;
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
-  fetch('/api/' + UK + '/portfolio/refresh-single/' + code)
-    .then(function(r) { return r.json(); })
-    .then(function(r) {
-      if (r.success) { toast(code + ' \u5DF2\u5237\u65B0', 'success'); loadP(); }
-      else { toast(r.error || '\u5237\u65B0\u5931\u8D25: ' + code, 'error'); }
-    })
-    .catch(function(e) { toast('\u5237\u65B0\u5931\u8D25: ' + e.message, 'error'); })
-    .finally(function() { if (btn) setTimeout(function() { btn.disabled = false; btn.innerHTML = '\u{1F504}'; }, 3000); });
-}
-
-function refreshWlStock(code) {
-  if (!code) return;
-  var btn = event && event.target;
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
-  fetch('/api/' + UK + '/watchlist/refresh-single/' + code)
-    .then(function(r) { return r.json(); })
-    .then(function(r) {
-      if (r.success) { toast(code + ' \u5DF2\u5237\u65B0', 'success'); loadW(); }
-      else { toast(r.error || '\u5237\u65B0\u5931\u8D25: ' + code, 'error'); }
-    })
-    .catch(function(e) { toast('\u5237\u65B0\u5931\u8D25: ' + e.message, 'error'); })
-    .finally(function() { if (btn) setTimeout(function() { btn.disabled = false; btn.innerHTML = '\u{1F504}'; }, 3000); });
-}
-
-async function fetchIntraday() {
+// ===== Fetch Intraday =====
+function fetchIntraday() {
   if (!P || !P.results) return;
   for (const r of P.results) {
     try {
@@ -686,9 +652,8 @@ function renderWl() {
 
       html += '<div class="scard" style="width:100%;max-width:100%;min-width:0;margin-bottom:12px">' +
         '<div class="top">' +
-'<span class="name stock-name" style="font-size:12px">' + esc(s.name) + '</span>' +
-          '<button class="btn btn-primary btn-xs" onclick="refreshWlStock(&#39;" + esc(s.code) + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:4px;line-height:1.6">&#x1F504;</button>' +
-          '<button class="btn btn-sm" onclick="delWlStock(&#39;" + esc(s.code) + "&#39;,\u0027" + esc(g.name) + "&#39;)" style="padding:0 5px;font-size:10px;margin-left:2px;color:#c0392b">&#x2716;</button>' +
+          '<span class="name stock-name" style="font-size:12px">' + esc(s.name) + '</span><button class="btn btn-primary btn-xs" onclick="refreshWlStock(\'" + esc(s.code) + "')" style="padding:0 5px;font-size:10px;margin-left:4px;line-height:1.6">&#x1F504;</button><button class="btn btn-sm" onclick="delWlStock(\'" + esc(s.code) + "','" + esc(g.name) + "')" style="padding:0 5px;font-size:10px;margin-left:2px;color:#c0392b">&#x2716;</button>' +
+
           '<span style="color:#888;font-size:11px">' + esc(s.code) + '</span>' +
           '<span style="margin-left:8px;font-size:12px;font-weight:700;color:' + (s.change_pct>=0?'#DC143C':'#008000') + '">' +
             (s.price != null ? s.price.toFixed(2) : '--') + ' ' +
@@ -696,7 +661,7 @@ function renderWl() {
           '<span style="margin-left:auto;display:flex;gap:6px">' +
             '<span class="badge" style="background:' + badgeColor + ';color:#fff;padding:3px 10px;border-radius:10px;font-size:11px">' + badge + '</span>' +
             reportLink(s.code, s.name, true, true) +
-
+            '<span class="rpt-refresh" onclick="regenerateReport(\'' + esc(s.code) + '\')" title="刷新报告">&#x1F504;</span>' +
             '<button class="btn btn-danger btn-sm" onclick="delWlStock(\'' + esc(s.code) + "','" + esc(g.name) + '\')">&#x2716;</button></span></div>' +
         '<div class="price-row" style="margin-bottom:6px">' +
           '<div class="price-box"><div class="pl">MA5</div><div class="pv" style="font-size:12px">' + (t.ma5 || '--') + '</div></div>' +
@@ -887,9 +852,37 @@ async function delWlGroup(name) {
 
 // ===== Helpers =====
 function refreshRptIcon(code) {
-
+  return `<span class="rpt-refresh" onclick="regenerateReport('${code}')" title="刷新报告">\u{1F504}</span>`;
 }
 
+async function regenerateReport(code) {
+  // Find the stock name from portfolio or watchlist
+  let name = '';
+  if (P && P.results) {
+    const r = P.results.find(x => x.code === code);
+    if (r) name = r.name;
+  }
+  if (!name && W && W.groups) {
+    for (const g of W.groups) {
+      const s = g.stocks.find(x => x.code === code);
+      if (s) { name = s.name; break; }
+    }
+  }
+  if (!name) { toast('找不到股票名称', 'error'); return; }
+  try {
+    const g = await api('/reports/generate/' + code + '?name=' + encodeURIComponent(name), {method: 'POST'});
+    if (g.ok) {
+      openReportUrl(g.report_url);
+      const el = document.getElementById('rpt-' + code);
+      if (el) el.textContent = '📄';
+      const elWl = document.getElementById('rpt-wl-' + code);
+      if (elWl) elWl.textContent = '📄';
+      toast('报告已刷新', 'success');
+    } else {
+      toast('生成报告失败', 'error');
+    }
+  } catch(e) { toast('出错: ' + e.message, 'error'); }
+}
 
 function adviceTag(a) {
   const m = {'买入': 'tg', '持有': 'ty', '观望': 'ty', '卖出': 'tr'};
@@ -897,10 +890,13 @@ function adviceTag(a) {
 }
 
 function reportLink(code, name, small, isWl) {
-  return "";
+  return '';
 }
-
-
+  const prefix = isWl ? 'rpt-wl-' : 'rpt-';
+  const id = prefix + code;
+  const cls = small ? 'btn-sm' : '';
+  return '<a id="' + id + '" href="javascript:void(0)" class="rl nr ' + cls + '" onclick="fetchReport(\'' + code + "','" + jsEsc(name) + "','" + id + '\')">📄 个股报告</a>';
+}
 
 function openReportUrl(url) {
   // Mobile: same-tab navigation (popup blockers can't block this)

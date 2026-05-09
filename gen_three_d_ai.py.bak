@@ -1,20 +1,6 @@
 #!/usr/bin/env python3.11
 """三维分析报告生成器（含AI分析）"""
-import urllib.request, json, math, time, os, sys, requests, pywencai
-
-# mx-data: 东方财富妙想金融数据（主数据源）
-sys.path.insert(0, '/home/admin/.openclaw/workspace/skills/mx-data')
-sys.path.insert(0, '/home/admin/.openclaw/workspace/daily_stock_analysis')
-try:
-    from mx_data import MXData
-    mx_data_available = True
-except Exception:
-    mx_data_available = False
-try:
-    from capital_flow import get_close_capital_flow, format_capital_report
-    capital_flow_available = True
-except Exception:
-    capital_flow_available = False
+import urllib.request, json, math, time, os, requests, pywencai
 
 with open("output/boss/portfolio_dashboard.json") as f:
     data = json.load(f)
@@ -94,264 +80,74 @@ if MX_APIKEY:
 else:
     print("  MX_APIKEY未配置，跳过板块数据")
 
-
-# Initialize mx-data instance
-mx_data_instance = None
-if mx_data_available:
-    try:
-        mx_data_instance = MXData()
-    except Exception:
-        mx_data_available = False
-
-# 💰 资金流数据（mx-data 主 + pywencai 备选）
+# 💰 资金流数据（改用 pywencai tableV1，稳定可靠）
 flow_map = {}
 data_reliability = {}
-
-def parse_money_str(s):
-    """解析 '5.915亿元' / '6346万元' / '-1.686亿元' → 元"""
-    s = str(s).strip()
-    if not s or s == '0' or s == '--': return 0.0
-    sign = -1 if s.startswith('-') else 1
-    s = s.lstrip('-')
-    try:
-        if '亿' in s:
-            return sign * float(s.replace('亿','').replace('元','')) * 1e8
-        elif '万' in s:
-            return sign * float(s.replace('万','').replace('元','')) * 1e4
-        else:
-            return sign * float(s.replace('元',''))
-    except:
-        return 0.0
-
-mx_flow_count = 0
-pw_flow_count = 0
 for code in stock_map:
-    sname = stock_map[code]["name"]
-    mkt = "sz" if code.startswith(("0","3")) else "sh"
-    full_code = mkt + code
-    tq = tencent_data.get(code, {})
-    turnover_wan = tq.get("amount_wan", 0)
-    
-    main_net = 0
-    super_large = 0
-    large_net = 0
-    source_used = ""
-    
-    # 1️⃣ mx-data（东方财富官方API，不限流）
-    if mx_data_available:
-        try:
-            result = mx_data_instance.query(f'{sname} 主力资金流向')
-            if result and result.get('data', {}).get('data', {}).get('searchDataResultDTO', {}):
-                table = result['data']['data']['searchDataResultDTO']['dataTableDTOList'][0]['table']
-                f62_raw = table.get('f62', ['0'])[0]
-                f78_raw = table.get('f78', ['0'])[0]
-                f72_raw = table.get('f72', ['0'])[0]
-                main_net = parse_money_str(f62_raw)
-                super_large = parse_money_str(f78_raw)
-                large_net = parse_money_str(f72_raw)
-                if abs(main_net) > 0 or abs(super_large) > 0:
-                    source_used = "mx-data"
-                    mx_flow_count += 1
-        except Exception:
-            pass
-    
-    # 2️⃣ pywencai 备选（如果mx-data没拿到数据）
-    if not source_used:
-        try:
-            result = pywencai.get(query=f'{full_code} 资金流向 主力净流入 特大单 大单', query_type='stock', perpage=1)
-            tbl = result.get('tableV1')
-            if tbl is not None and hasattr(tbl, 'to_dict'):
-                rows = tbl.to_dict('records')
-                if rows:
-                    row = rows[0]
-                    main_net = float(row.get('资金流向', 0) or 0)
-                    super_large = float(row.get('特大单净额', 0) or 0)
-                    large_net = float(row.get('dde大单净额', 0) or 0)
-                    source_used = "pywencai"
-                    pw_flow_count += 1
-        except:
-            pass
-        time.sleep(0.5)
-    
-    # 交叉验证
-    reliability = "可靠"
-    reasons = []
-    calc_main = super_large + large_net
-    
-    if abs(main_net) > 1e7 and abs(calc_main) > 1e7:
-        diff_pct = abs(main_net - calc_main) / max(abs(main_net), abs(calc_main)) * 100
-        if diff_pct > 100:
+    try:
+        sname = stock_map[code]["name"]
+        mkt = "sz" if code.startswith(("0","3")) else "sh"
+        full_code = mkt + code
+        # 用 tableV1 查询资金流（最稳定的返回格式）
+        result = pywencai.get(query=f'{full_code} 资金流向 主力净流入 特大单 大单', query_type='stock', perpage=1)
+        tbl = result.get('tableV1')
+        if tbl is None or not hasattr(tbl, 'to_dict'):
+            time.sleep(0.5)
+            continue
+        rows = tbl.to_dict('records')
+        if not rows:
+            time.sleep(0.5)
+            continue
+        row = rows[0]
+        
+        # 提取字段（单位：元）
+        main_net = float(row.get('资金流向', 0) or 0)  # 主力净流入
+        super_large = float(row.get('特大单净额', 0) or 0)  # 超大单
+        large_net = float(row.get('dde大单净额', 0) or 0)  # 大单
+        inflow = float(row.get('资金流入inner', 0) or 0)
+        outflow = float(row.get('资金流出inner', 0) or 0)
+        
+        tq = tencent_data.get(code, {})
+        turnover_wan = tq.get("amount_wan", 0)
+        
+        reliability = "可靠"
+        reasons = []
+        calc_main = super_large + large_net
+        
+        # 交叉验证
+        if abs(main_net) > 1e7 and abs(calc_main) > 1e7:
+            diff_pct = abs(main_net - calc_main) / max(abs(main_net), abs(calc_main)) * 100
+            if diff_pct > 100:
+                reliability = "不可靠"
+                reasons.append(f"主力 vs 超大+大偏差{diff_pct:.0f}%")
+            elif diff_pct > 50:
+                reliability = "存疑"
+                reasons.append(f"主力 vs 超大+大偏差{diff_pct:.0f}%")
+        
+        if main_net * calc_main < 0 and abs(main_net) > 5e7:
             reliability = "不可靠"
-            reasons.append(f"主力 vs 超大+大偏差{diff_pct:.0f}%")
-        elif diff_pct > 50:
-            reliability = "存疑"
-            reasons.append(f"主力 vs 超大+大偏差{diff_pct:.0f}%")
-    
-    if main_net * calc_main < 0 and abs(main_net) > 5e7:
-        reliability = "不可靠"
-        reasons.append("主力与超大+大方向相反")
-    
-    data_reliability[code] = {"level": reliability, "reasons": reasons, "turnover_wan": turnover_wan, "source": source_used}
-    
-    flow_map[code] = {
-        "f12":code, "f14":sname,
-        "f2":tq.get("price",0), "f3":tq.get("pct",0),
-        "f62": main_net,
-        "f184": int(main_net/10000) if main_net else 0,
-        "f66": int(super_large),
-        "f69": 0,
-        "f72": int(large_net),
-        "f78": int(super_large),
-        "reliability": reliability,
-        "reliability_reasons": "、".join(reasons) if reasons else "",
-        "turnover": tq.get("turnover", 0),
-        "amount_wan": turnover_wan,
-        "vol": tq.get("vol", 0),
-        "data_source": source_used
-    }
-print(f"  资金流: mx-data={mx_flow_count}, pywencai={pw_flow_count}")
-
-# 📊 财务指标（mx-data 主 + pywencai 备选）
-print("📊 财务指标...")
-financial_map = {}
-fin_mx = 0
-fin_pw = 0
-for code in stock_map:
-    sname = stock_map[code]["name"]
-    mkt = "sz" if code.startswith(("0","3")) else "sh"
-    full_code = mkt + code
-    
-    pe = pb = roe = revenue = net_profit = main_business = ""
-    source_used = ""
-    
-    # 1️⃣ mx-data
-    if mx_data_available and mx_data_instance:
-        try:
-            result = mx_data_instance.query(f'{sname} 市盈率 市净率 ROE 净利润 营业收入 主营业务')
-            if result:
-                tables = result.get('data',{}).get('data',{}).get('searchDataResultDTO',{}).get('dataTableDTOList',[])
-                for dto in tables:
-                    tbl = dto.get('table', {})
-                    head = dto.get('headName', '')
-                    # PE: 328664 or f23
-                    pe_val = tbl.get('328664', [''])[0] or tbl.get('f23', [''])[0]
-                    pb_val = tbl.get('328773', [''])[0] or tbl.get('f24', [''])[0]
-                    roe_val = tbl.get('100000000003466', [''])[0] or tbl.get('f129', [''])[0]
-                    
-                    if pe_val and not pe: pe = str(pe_val)
-                    if pb_val and not pb: pb = str(pb_val)
-                    if roe_val and not roe: roe = str(roe_val)
-                    
-                    # Net profit / revenue
-                    for k, v in tbl.items():
-                        v0 = v[0] if isinstance(v, list) else v
-                        if isinstance(v0, str):
-                            if '净利润' in k and not net_profit:
-                                net_profit = v0
-                            if '营业收入' in k and not revenue:
-                                revenue = v0
-                    
-                    # Main business from entity name or head
-                    entity = dto.get('entityName', '')
-                    if entity and not main_business:
-                        main_business = entity
-                
-                if pe or pb or roe:
-                    source_used = "mx-data"
-                    fin_mx += 1
-        except:
-            pass
-    
-    # 2️⃣ pywencai 备选
-    if not source_used:
-        try:
-            result = pywencai.get(query=f'{full_code} 市盈率 市净率 ROE 净利润 营业收入', query_type='stock', perpage=1)
-            tbl = result.get('tableV1')
-            if tbl is not None and hasattr(tbl, 'to_dict'):
-                rows = tbl.to_dict('records')
-                if rows:
-                    import math
-                    # Aggregate across all rows (data is split across rows)
-                    pe = pb = roe = net_profit = revenue = None
-                    for row in rows:
-                        def get_val(key):
-                            v = row.get(key, None)
-                            if v is not None and isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v)):
-                                return v
-                            return None
-                        
-                        if pe is None:
-                            pe = get_val('市盈率(pe)')
-                            if pe is None:
-                                pe = get_val('预测市盈率(pe,最新预测)')
-                        if pb is None:
-                            pb = get_val('市净率(pb)')
-                        if roe is None:
-                            roe = get_val('净资产收益率roe(加权,公布值)')
-                            if roe is None:
-                                roe = get_val('预测净资产收益率(roe)平均值')
-                        if net_profit is None:
-                            net_profit = get_val('归属于母公司所有者的净利润')
-                        if revenue is None:
-                            revenue = get_val('营业收入')
-                            if revenue is None:
-                                revenue = get_val('营业总收入')
-                    
-                    # Convert to strings
-                    pe = str(pe) if pe is not None else ''
-                    pb = str(pb) if pb is not None else ''
-                    roe = str(roe) if roe is not None else ''
-                    net_profit = str(net_profit) if net_profit is not None else ''
-                    revenue = str(revenue) if revenue is not None else ''
-                    
-                    if pe or pb or roe:
-                        source_used = "pywencai"
-                        fin_pw += 1
-        except:
-            pass
-        time.sleep(0.3)
-    
-    financial_map[code] = {
-        "pe": pe, "pb": pb, "roe": roe,
-        "net_profit": net_profit, "revenue": revenue,
-        "main_business": main_business, "data_source": source_used
-    }
-print(f"  财务指标: mx-data={fin_mx}, pywencai={fin_pw}")
-
-# 🏆 市场资金流向TOP（capital_flow.py / mx-xuangu）
-market_flow_top = ""
-if capital_flow_available:
-    try:
-        top_in = get_close_capital_flow(direction="inflow", limit=5, market="all")
-        top_out = get_close_capital_flow(direction="outflow", limit=5, market="all")
+            reasons.append("主力与超大+大方向相反")
         
-        lines_top = []
-        if top_in and isinstance(top_in, list):
-            for i, item in enumerate(top_in[:5]):
-                name = item.get('name', '')
-                code = item.get('code', '')
-                net = item.get('close_net', 0)
-                pct = item.get('pct', 0)
-                lines_top.append(f"  #{i+1} {name}({code}) +{net}亿 涨幅{pct:+.1f}%")
+        data_reliability[code] = {"level": reliability, "reasons": reasons, "turnover_wan": turnover_wan}
         
-        lines_bottom = []
-        if top_out and isinstance(top_out, list):
-            for i, item in enumerate(top_out[:5]):
-                name = item.get('name', '')
-                code = item.get('code', '')
-                net = item.get('close_net', 0)
-                pct = item.get('pct', 0)
-                lines_bottom.append(f"  #{i+1} {name}({code}) {net}亿 涨幅{pct:+.1f}%")
-        
-        if lines_top:
-            market_flow_top = "\n🟢 尾盘主力净流入TOP5:\n" + "\n".join(lines_top)
-        if lines_bottom:
-            market_flow_top += "\n\n🔴 尾盘主力净流出TOP5:\n" + "\n".join(lines_bottom)
-        if market_flow_top:
-            print("  市场资金TOP: 已生成")
+        flow_map[code] = {
+            "f12":code, "f14":sname,
+            "f2":tq.get("price",0), "f3":tq.get("pct",0),
+            "f62": main_net,
+            "f184": int(main_net/10000) if main_net else 0,
+            "f66": int(super_large),
+            "f69": 0,
+            "f72": int(large_net),
+            "f78": int(super_large),
+            "reliability": reliability,
+            "reliability_reasons": "、".join(reasons) if reasons else "",
+            "turnover": tq.get("turnover", 0),
+            "amount_wan": turnover_wan,
+            "vol": tq.get("vol", 0)
+        }
+        time.sleep(0.5)  # 避免 pywencai 限流
     except Exception as e:
-        print(f"  市场资金TOP: 失败 - {e}")
-        market_flow_top = ""
+        pass
 
 # 📰 新闻/公告数据（pywencai，每个股票查一次）
 print("📰 新闻/公告...")
@@ -429,29 +225,19 @@ def calc_macd(cl):
     for c in cl[1:]: e2=c*k2+e2*(1-k2)
     return e-e2
 
-# 改用腾讯日K线（东方财富5分钟K线push2his已完全不通）
 kline_data = {}
 for i, s in enumerate(data["results"]):
-    c = s["code"]; mkt = "sh" if c.startswith("6") else "sz"
+    c = s["code"]; mc = "1" if c.startswith("6") else "0"
     try:
-        raw = urllib.request.urlopen(urllib.request.Request(
-            "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param="+mkt+c+",day,,,120,qfq",
-            headers={"User-Agent":"Mozilla/5.0"}), timeout=8).read()
-        kd = json.loads(raw).get("data",{}).get(mkt+c,{}).get("qfqday",[])
-        if not kd or len(kd) < 10:
-            kline_data[c] = {}
-            continue
-        cl = [float(d[2]) for d in kd]
-        vo = [float(d[5]) for d in kd]
-        hi = [float(d[3]) for d in kd]
-        lo = [float(d[4]) for d in kd]
+        raw = urllib.request.urlopen(urllib.request.Request("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid="+mc+"."+c+"&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=5&fqt=1&end=20500101&lmt=48&_="+str(int(time.time()*1000)+i), headers={"User-Agent":"Mozilla/5.0"}), timeout=8).read()
+        kd = json.loads(raw).get("data",{}).get("klines",[])
+        cl = [float(k.split(",")[2]) for k in kd if len(k.split(","))>=6]
+        vo = [float(k.split(",")[5]) for k in kd if len(k.split(","))>=6]
+        hi = [float(k.split(",")[3]) for k in kd if len(k.split(","))>=6]
+        lo = [float(k.split(",")[4]) for k in kd if len(k.split(","))>=6]
         rsi = calc_rsi(cl,14) if len(cl)>=15 else 50
         dif = calc_macd(cl)
-        # 量比：今日量/前5日均量
-        if len(vo) >= 6:
-            vr = vo[-1] / (sum(vo[-6:-1]) / 5) if sum(vo[-6:-1]) > 0 else 1.0
-        else:
-            vr = 1.0
+        vr = (sum(vo[-4:])/4)/(sum(vo[-8:-4])/4) if len(vo)>=8 else 1.0
         tr = (sum(cl[-4:])/4-sum(cl[:4])/4)/sum(cl[:4])*100 if len(cl)>=8 and sum(cl[:4])>0 else 0
         ih = max(hi) if hi else 0; il = min(lo) if lo else 0
         ps = (cl[-1]-il)/(ih-il)*100 if ih!=il else 50
@@ -524,8 +310,7 @@ for s in data["results"]:
         if sname in sector_data:
             sp = sector_data[sname]["pct"]
             break
-    fm = financial_map.get(c, {})
-    results.append({"code":c,"name":n,"sector":se,"price":pr,"pct":pct,"cost":co,"qty":q,"pnl_pct":pp,"val":v,"f62":f62,"f184":f184,"f78":f78,"f72":f72,"f69":f69,"f66":f66,"rsi":rsi,"rsi_s":rsi_s,"dif":dif,"macd_s":macd_s,"trend_s":ts,"vol_ratio":vr,"pos":ps,"pos_s":ps_s,"kline_high":kd.get("high",0),"kline_low":kd.get("low",0),"action":ac,"action_color":acr,"action_reason":acr2,"reasons":re,"warnings":wa,"ai_advice":"","ai_sentiment":0,"ai_summary":"","ai_target":0,"ai_stop":0,"ai_confidence":"","reliability":rel_level,"reliability_reasons":rel_reasons,"turnover":td.get("turnover",0),"amount_wan":td.get("amount_wan",0),"fund_calc":calc_main,"fund_dev":dev_pct,"fund_opp":opp,"sector_pct":sp,"pe":fm.get("pe",""),"pb":fm.get("pb",""),"roe":fm.get("roe","")})
+    results.append({"code":c,"name":n,"sector":se,"price":pr,"pct":pct,"cost":co,"qty":q,"pnl_pct":pp,"val":v,"f62":f62,"f184":f184,"f78":f78,"f72":f72,"f69":f69,"f66":f66,"rsi":rsi,"rsi_s":rsi_s,"dif":dif,"macd_s":macd_s,"trend_s":ts,"vol_ratio":vr,"pos":ps,"pos_s":ps_s,"kline_high":kd.get("high",0),"kline_low":kd.get("low",0),"action":ac,"action_color":acr,"action_reason":acr2,"reasons":re,"warnings":wa,"ai_advice":"","ai_sentiment":0,"ai_summary":"","ai_target":0,"ai_stop":0,"ai_confidence":"","reliability":rel_level,"reliability_reasons":rel_reasons,"turnover":td.get("turnover",0),"amount_wan":td.get("amount_wan",0),"fund_calc":calc_main,"fund_dev":dev_pct,"fund_opp":opp,"sector_pct":sp})
 
 # AI batch analysis
 print("AI批量分析...")
@@ -761,14 +546,6 @@ if market_indices:
     mi_html += '</div></div>'
     H.append(mi_html)
 
-# 🏆 市场资金流向TOP模块
-if market_flow_top:
-    mf_html = '<div class="section" style="padding:10px"><h2 style="margin-bottom:6px;font-size:15px">🏆 市场主力资金流向</h2>'
-    mf_html += '<div style="background:#f9f9f9;border-radius:6px;padding:10px;font-size:13px;white-space:pre-line;line-height:1.8">'
-    mf_html += market_flow_top
-    mf_html += '</div></div>'
-    H.append(mf_html)
-
 H.append('<div class="summary">')
 H.append('<div class="sc"><div class="v">' + str(len(results)) + '</div><div class="l">持仓数</div></div>')
 H.append('<div class="sc"><div class="v">¥' + "{:,.0f}".format(tv) + '</div><div class="l">总市值</div></div>')
@@ -853,17 +630,6 @@ for r in results:
     s += '<div class="i"><div class="lb">换手</div><div class="vl">' + "{:.1f}".format(turnover) + '%</div></div>'
     s += '<div class="i"><div class="lb">成交</div><div class="vl">' + amt_str + '</div></div>'
     s += '<div class="i"><div class="lb">量比</div><div class="vl">' + "{:.1f}".format(r["vol_ratio"]) + '</div></div>'
-    
-    # 财务指标（PE/PB/ROE）
-    pe_val = r.get("pe", "")
-    pb_val = r.get("pb", "")
-    roe_val = r.get("roe", "")
-    if pe_val or pb_val or roe_val:
-        fin_str = ""
-        if pe_val: fin_str += "PE:" + str(pe_val) + " "
-        if pb_val: fin_str += "PB:" + str(pb_val) + " "
-        if roe_val: fin_str += "ROE:" + str(roe_val)
-        s += '<div class="i" style="grid-column:span 2;background:#f5f5f5;border-radius:4px;padding:2px 6px"><div class="lb">📊 财务</div><div class="vl" style="font-size:11px">' + fin_str + '</div></div>'
     
     # 资金流详情：存疑时显示计算值
     if r.get("fund_opp"):

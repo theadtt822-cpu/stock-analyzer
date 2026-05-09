@@ -1,14 +1,16 @@
 #!/usr/bin/env python3.11
 """
-StockHolmes 交互式持仓仪表盘服务器 v2
+StockHolmes 交互式持仓仪表盘服务器 v3
 - 独立用户页面：/tiantian/ (天天) 和 /bobo/ (波波)
 - 实时行情刷新（腾讯API，手动刷新按钮）
 - 持仓/自选股在线编辑
 - 自动生成个股分析报告
+- 三维数据整合：财务/两融/模式识别/DeepSeek AI
 - 不影响旧 report_server (8081)
 """
 import json
 import os
+import sys
 from kol_tracker import (
     fetch_realtime_quote as _fetch_quote,
     load_sources, save_sources, load_recs, save_recs, load_stats, save_stats,
@@ -20,6 +22,32 @@ import glob as globmod
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# 三维报告需要的额外模块
+try:
+    import pywencai
+except ImportError:
+    pywencai = None
+    print("[WARN] pywencai not installed - margin/两融 queries will fall back to empty")
+import requests as _http_requests
+
+# mx-data 路径
+sys.path.insert(0, '/home/admin/.openclaw/workspace/skills/mx-data')
+sys.path.insert(0, '/home/admin/.openclaw/workspace/daily_stock_analysis')
+try:
+    from mx_data import MXData
+    _mx = MXData()
+    mx_data_available = True
+except Exception:
+    _mx = None
+    mx_data_available = False
+
+try:
+    from capital_flow import get_close_capital_flow, format_capital_report, get_stock_money_flow
+    capital_flow_available = True
+except Exception:
+    capital_flow_available = False
+    def get_stock_money_flow(code, name): return {}
 
 from flask import Flask, jsonify, request, render_template, send_from_directory
 
@@ -99,37 +127,19 @@ def fetch_realtime_quote(codes):
             'update_time': p[30] if len(p) > 30 else '',
             'bids': bids,  # 买5档
             'asks': asks,  # 卖5档
+            'turnover': float(p[38]) if len(p) > 38 and p[38] else 0,        # 换手率%
+            'amount_wan': float(p[36]) if len(p) > 36 and p[36] else 0,       # 成交额(万)
         }
     return results
 
 
-def fetch_money_flow(code):
-    """从东方财富获取资金流向数据"""
-    market = 1 if code.startswith('6') else 0
-    url = f"https://push2.eastmoney.com/api/qt/stock/get?secid={market}.{code}&fields=f135,f136,f137,f138,f139,f140,f141,f142,f143,f144,f145,f146,f147,f148,f149"
+def fetch_money_flow(code, name=""):
+    """从 mx-xuangu 获取主力资金流向数据（替代已失效的东方财富push2 API）"""
+    if not name or not capital_flow_available:
+        return {}
     try:
-        req = urllib.request.Request(url)
-        req.add_header('User-Agent', 'Mozilla/5.0')
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-        d = data.get('data', {})
-        return {
-            'zhu_li_buy': round(d.get('f135', 0) / 10000, 0),
-            'zhu_li_sell': round(d.get('f136', 0) / 10000, 0),
-            'zhu_li_net': round(d.get('f137', 0) / 10000, 0),
-            'chao_da_buy': round(d.get('f138', 0) / 10000, 0),
-            'chao_da_sell': round(d.get('f139', 0) / 10000, 0),
-            'chao_da_net': round(d.get('f140', 0) / 10000, 0),
-            'da_buy': round(d.get('f141', 0) / 10000, 0),
-            'da_sell': round(d.get('f142', 0) / 10000, 0),
-            'da_net': round(d.get('f143', 0) / 10000, 0),
-            'zhong_buy': round(d.get('f144', 0) / 10000, 0),
-            'zhong_sell': round(d.get('f145', 0) / 10000, 0),
-            'zhong_net': round(d.get('f146', 0) / 10000, 0),
-            'xiao_buy': round(d.get('f147', 0) / 10000, 0),
-            'xiao_sell': round(d.get('f148', 0) / 10000, 0),
-            'xiao_net': round(d.get('f149', 0) / 10000, 0),
-        }
+        result = get_stock_money_flow(code, name)
+        return result  # returns {"zhu_li_net": 万元, ...}
     except Exception as e:
         print(f"[money flow error {code}] {e}")
         return {}
@@ -204,110 +214,199 @@ def compute_indicators(klines):
     }
 
 
-def stockholmes_rules(tech, money_flow=None, order_book=None):
+def stockholmes_rules(
+    tech, money_flow=None, order_book=None,
+    financial=None, pattern=None, turnover=None, amount_wan=None, day_change=None,
+):
+    """多因子波段评分系统（v2）
+
+    五大因子：趋势(25) + 资金(20) + 量价(20) + 估值(15) + 技术形(20) = 100
+    基准50分，范围0~100
+    """
     if not tech:
         return {'buy_signal': '数据不足', 'signal_score': 0,
                 'signal_reasons': [], 'risk_factors': [],
                 'ma_alignment': '', 'macd_status': '', 'rsi_status': ''}
+
     score = 50
     reasons, risks = [], []
+
+    def _add(v, reason, risk):
+        nonlocal score
+        if v > 0: score += v; reasons.append(reason)
+        elif v < 0: score += v; risks.append(risk)
+
+    # ====== 因子1: 趋势因子 (max +/-25) ======
+
+    # 1a. 均线排列 +/-10
     ma5, ma10, ma20 = tech.get('ma5'), tech.get('ma10'), tech.get('ma20')
     if ma5 and ma10 and ma20:
         if ma5 > ma10 > ma20:
-            score += 15; reasons.append('多头排列，顺势做多'); ma_align = '多头排列 MA5>MA10>MA20'
+            _add(10, '多头排列，顺势做多', '')
+            ma_align = '多头排列 MA5>MA10>MA20'
         elif ma5 < ma10 < ma20:
-            score -= 15; risks.append('空头排列，趋势向下'); ma_align = '空头排列 MA5<MA10<MA20'
+            _add(-10, '', '空头排列，趋势向下')
+            ma_align = '空头排列 MA5<MA10<MA20'
         else:
-            ma_align = '均线交织，方向不明'; risks.append('均线交织，等待明确信号')
+            ma_align = '均线交织，方向不明'
+            if ma5 > ma10 and ma10 < ma20:
+                _add(3, '短线上穿中期，转多信号', '')
+            elif ma5 < ma10 and ma10 > ma20:
+                _add(-3, '', '短线破位中期，转空信号')
+            else:
+                _add(-2, '', '均线交织，方向不明')
     else:
         ma_align = '数据不足'
-    bias5 = tech.get('bias5', 0)
-    if abs(bias5) <= 2:
-        score += 10; reasons.append(f'价格贴近MA5({abs(bias5):.1f}%)，介入好时机')
-    elif bias5 > 5:
-        score -= 5; risks.append(f'偏离MA5过远({bias5:.1f}%)，有回落风险')
-    ms = tech.get('macd_signal', '')
-    if ms == '金叉':
-        score += 10; reasons.append('MACD金叉，上涨动能增强')
-    elif ms == '死叉':
-        score -= 10; risks.append('MACD死叉，下跌动能增强')
-    rsi = tech.get('rsi', 50)
-    if rsi > 70:
-        score -= 5; risks.append(f'RSI超买({rsi:.0f}>70)，短期回调风险高')
-    elif rsi < 30:
-        score += 5; reasons.append(f'RSI超卖({rsi:.0f}<30)，可能反弹')
-    vr = tech.get('vol_ratio', 1)
-    if vr > 1.5:
-        reasons.append(f'放量(量比{vr})，资金活跃')
-    elif vr < 0.5:
-        risks.append(f'缩量(量比{vr})，交投清淡')
 
-    # === 资金流向评分 ===
-    mf_text = ''
+    # 1b. MACD评分 +/-8（零轴附近金叉最重要）
+    ms = tech.get('macd_signal', '')
+    dif = tech.get('dif', 0)
+    if ms == '金叉':
+        _add(8 if abs(dif) < 1 else 5, '零轴附近金叉' if abs(dif)<1 else 'MACD金叉', '')
+    elif ms == '死叉':
+        _add(-8 if abs(dif) < 1 else -6, '', '零轴附近死叉' if abs(dif)<1 else 'MACD死叉')
+
+    # 1c. 趋势方向 +/-7
+    trend = tech.get('trend', '震荡')
+    if trend == '上升': _add(5, '中期趋势向上', '')
+    elif trend == '下跌': _add(-5, '', '中期趋势向下')
+
+    high20 = tech.get('high_20')
+    low20 = tech.get('low_20')
+    price = tech.get('close', tech.get('current', 0))
+    if high20 and low20 and price and high20 > low20:
+        rp = (price - low20) / (high20 - low20) * 100
+        if rp > 80: _add(3, f'价格位于20日区间上沿({rp:.0f}%)，突破迹象', '')
+        elif rp < 20: _add(-3, '', f'价格位于20日区间下沿({rp:.0f}%)，弱势')
+
+    # ====== 因子2: 资金因子 (max +/-20) ======
+
     if money_flow and money_flow.get('zhu_li_net') is not None:
         zln = money_flow.get('zhu_li_net', 0)
-        cdn = money_flow.get('chao_da_net', 0)
-        dn = money_flow.get('da_net', 0)
-        zn = money_flow.get('zhong_net', 0)
-        xn = money_flow.get('xiao_net', 0)
-        # 主力净流
-        if zln > 1000:
-            score += 10; reasons.append(f'主力大幅净流入({zln:.0f}万)，大资金进场')
-            mf_text += '主力大幅净流入; '
-        elif zln > 200:
-            score += 5; reasons.append(f'主力净流入({zln:.0f}万)')
-            mf_text += '主力净流入; '
-        elif zln < -1000:
-            score -= 10; risks.append(f'主力大幅净流出({zln:.0f}万)，大资金离场')
-            mf_text += '主力大幅净流出; '
-        elif zln < -200:
-            score -= 5; risks.append(f'主力净流出({zln:.0f}万)')
-            mf_text += '主力净流出; '
-        # 主力vs散户方向背离（主力买入 + 小单卖出 = 吸筹信号）
-        if cdn > 500 and xn < -200:
-            score += 7; reasons.append('超大单扫货、小单抛售，典型吸筹信号')
-            mf_text += '吸筹信号; '
-        elif cdn < -500 and xn > 200:
-            score -= 7; risks.append('超大单砸盘、小单接盘，派发信号')
-            mf_text += '派发信号; '
+        px = tech.get('close', tech.get('current', 50)) or 50
+        sc = max(1, px / 50)
+        th_h = int(1000 * sc)
+        th_l = int(200 * sc)
+        if zln > th_h:
+            _add(10, f'主力大幅净流入({zln:.0f}万)，大资金进场', ''); mf_text = '主力大幅净流入'
+        elif zln > th_l:
+            _add(5, f'主力净流入({zln:.0f}万)', ''); mf_text = '主力净流入'
+        elif zln < -th_h:
+            _add(-10, '', f'主力大幅净流出({zln:.0f}万)，大资金离场'); mf_text = '主力大幅净流出'
+        elif zln < -th_l:
+            _add(-5, '', f'主力净流出({zln:.0f}万)'); mf_text = '主力净流出'
+        else: mf_text = '资金平衡'
+    else: mf_text = '暂无数据'
 
-    # === 5档盘口评分 ===
+    # 盘口评分 +/-10
     ob_text = ''
     if order_book and order_book.get('bids') and order_book.get('asks'):
         bids = [b for b in order_book['bids'] if b and b.get('price', 0) > 0]
         asks = [a for a in order_book['asks'] if a and a.get('price', 0) > 0]
         if bids and asks:
-            bid_vol = sum(int(b.get('volume', 0)) for b in bids)
-            ask_vol = sum(int(a.get('volume', 0)) for a in asks)
-            ratio = bid_vol / ask_vol if ask_vol > 0 else 0
-            if ratio > 2:
-                score += 8; reasons.append(f'买盘堆积(买/卖={ratio:.1f}倍)，支撑强劲')
-                ob_text += '买盘强势; '
-            elif ratio > 1.3:
-                score += 4; reasons.append(f'买盘占优(买/卖={ratio:.1f}倍)')
-                ob_text += '买盘占优; '
-            elif ratio < 0.5:
-                score -= 8; risks.append(f'卖盘堆积(买/卖={ratio:.1f}倍)，抛压较重')
-                ob_text += '卖盘强势; '
-            elif ratio < 0.8:
-                score -= 4; risks.append(f'卖盘占优(买/卖={ratio:.1f}倍)')
-                ob_text += '卖盘占优; '
+            ratio = sum(int(b.get('volume',0)) for b in bids) / max(sum(int(a.get('volume',0)) for a in asks), 1)
+            if ratio > 2: _add(8, f'买盘堆积(买/卖={ratio:.1f}倍)，支撑强劲', ''); ob_text = '买盘强势'
+            elif ratio > 1.3: _add(4, f'买盘占优(买/卖={ratio:.1f}倍)', ''); ob_text = '买盘占优'
+            elif ratio < 0.5: _add(-8, '', f'卖盘堆积(买/卖={ratio:.1f}倍)，抛压较重'); ob_text = '卖盘强势'
+            elif ratio < 0.8: _add(-4, '', f'卖盘占优(买/卖={ratio:.1f}倍)'); ob_text = '卖盘占优'
+            else: ob_text = '买卖均衡'
 
+    # ====== 因子3: 量价配合 (max +/-20) ======
+
+    vr = tech.get('vol_ratio', 1)
+    dc = day_change or tech.get('day_change', 0) or 0
+    if vr > 1.5 and dc > 2: _add(8, f'放量上涨(量比{vr:.1f} 涨幅{dc:+.1f}%)，量价配合好', '')
+    elif vr > 1.5 and dc < -2: _add(-8, '', f'放量下跌(量比{vr:.1f} 涨幅{dc:+.1f}%)，抛压大')
+    elif vr < 0.5 and dc > 1: _add(-3, '', f'缩量上涨(量比{vr:.1f})，上涨无量')
+    elif vr < 0.5 and dc < -1: _add(3, f'缩量下跌(量比{vr:.1f})，抛压衰竭', '')
+    elif vr > 1.5: _add(3, f'放量(量比{vr:.1f})，资金活跃', '')
+    elif vr < 0.5: _add(-2, '', f'缩量(量比{vr:.1f})，交投清淡')
+
+    to = turnover or tech.get('turnover', 0)
+    if to:
+        try:
+            tf = float(to)
+            if tf > 10: _add(-3, '', f'换手{tf:.1f}%过高，投机过热')
+            elif tf > 5: _add(3, f'换手{tf:.1f}%活跃，交投活跃', '')
+            elif tf > 2: _add(2, f'换手{tf:.1f}%适中', '')
+        except: pass
+
+    amt = amount_wan or tech.get('amount_wan', 0)
+    if amt:
+        try:
+            af = float(amt)
+            if af > 500000: _add(3, f'大成交{af/10000:.0f}亿', '')
+            elif af > 200000: _add(2, f'成交{af/10000:.0f}亿', '')
+        except: pass
+
+    # ====== 因子4: 估值因子 (max +/-15) ======
+
+    if financial:
+        pe, pb, roe = financial.get('pe'), financial.get('pb'), financial.get('roe')
+        if pe is not None and pe != '--' and pe != 0:
+            try:
+                pf = float(pe)
+                if pf < 0: _add(-5, '', f'PE为负({pf:.0f})，企业亏损')
+                elif pf > 100: _add(-3, '', f'PE{pf:.0f}偏高，估值压力大')
+                elif 10 <= pf <= 30: _add(4, f'PE{pf:.0f}合理估值适中', '')
+                elif pf < 10: _add(5, f'PE{pf:.0f}<10价值洼地', '')
+                else: _add(-1, '', f'PE{pf:.0f}偏高')
+            except: pass
+        if roe is not None and roe != '--':
+            try:
+                rf = float(roe)
+                if rf > 30: _add(6, f'ROE{rf:.1f}%盈利极优秀', '')
+                elif rf > 15: _add(5, f'ROE{rf:.1f}%盈利良好', '')
+                elif rf > 8: _add(3, f'ROE{rf:.1f}%盈利尚可', '')
+                elif rf < 0: _add(-4, '', f'ROE{rf:.1f}%为负企业亏损')
+                else: _add(-1, '', f'ROE{rf:.1f}%偏低')
+            except: pass
+        if pb is not None and pb != '--':
+            try:
+                bf = float(pb)
+                if bf > 10: _add(-3, '', f'PB{bf:.1f}过高')
+                elif bf < 1: _add(3, f'PB{bf:.2f}<1破净安全边际', '')
+            except: pass
+
+    # ====== 因子5: 技术形态 (max +/-20) ======
+
+    if pattern:
+        if pattern.get('head_and_shoulders_top'): _add(-10, '', '头肩顶形态，见顶风险')
+        if pattern.get('double_top'): _add(-8, '', 'M顶形态，阻力强')
+        if pattern.get('double_bottom'): _add(10, '双底形态，底部确认', '')
+        if pattern.get('head_and_shoulders_bottom'): _add(8, '头肩底形态', '')
+        if pattern.get('falling_wedge'): _add(6, '下降楔形可能翻转向上', '')
+        if pattern.get('rising_wedge'): _add(-6, '', '上升楔形可能翻转下跌')
+        if pattern.get('flag') or pattern.get('bull_flag'): _add(5, '旗形整理蓄力突破', '')
+        if pattern.get('bear_flag'): _add(-5, '', '下跌旗形弱势持续')
+
+    rsi = tech.get('rsi', 50)
+    if rsi > 70: _add(-5, '', f'RSI超买({rsi:.0f}>70)')
+    elif rsi < 30: _add(5, f'RSI超卖({rsi:.0f}<30)可能反弹', '')
+    elif rsi > 60: _add(2, f'RSI{rsi:.0f}偏强', '')
+    elif rsi < 40: _add(-2, '', f'RSI{rsi:.0f}偏弱')
+
+    bias5 = tech.get('bias5', 0)
+    if abs(bias5) <= 2: _add(3, f'价格贴近MA5(乖离{abs(bias5):.1f}%)', '')
+    elif bias5 > 5: _add(-4, '', f'偏离MA5过远({bias5:.1f}%)')
+    elif bias5 < -5: _add(3, f'负乖离{bias5:.1f}%超跌', '')
+
+    # --- 总分 ---
     score = max(0, min(100, score))
     if score >= 70: bs = '买入'
     elif score >= 55: bs = '持有'
     elif score >= 40: bs = '观望'
     else: bs = '卖出'
+
     return {
         'buy_signal': bs, 'signal_score': score,
         'signal_reasons': reasons, 'risk_factors': risks,
         'ma_alignment': ma_align,
         'macd_status': '金叉看涨' if ms == '金叉' else ('死叉看跌' if ms == '死叉' else '待确认'),
         'rsi_status': '超买' if rsi > 70 else ('超卖' if rsi < 30 else ('偏强' if rsi > 50 else '偏弱')),
-        'money_flow_status': mf_text.strip('; '),
-        'order_book_status': ob_text.strip('; '),
+        'money_flow_status': mf_text,
+        'order_book_status': ob_text,
     }
-
 
 def generate_ai_analysis(code, name, tech, quote, money_flow=None, order_book=None):
     """调用本地 LLM 生成 AI 技术分析"""
@@ -401,6 +500,241 @@ def generate_ai_analysis(code, name, tech, quote, money_flow=None, order_book=No
         return {}
 
 
+# ===== 新增：三维数据获取函数 =====
+
+def fetch_financial_data(code, name):
+    """获取 PE/PB/ROE 财务指标"""
+    result = {'pe': '', 'pb': '', 'roe': ''}
+    if mx_data_available and _mx:
+        try:
+            r = _mx.query(f'{name} 市盈率 市净率 ROE')
+            tables = r.get('data',{}).get('data',{}).get('searchDataResultDTO',{}).get('dataTableDTOList',[])
+            for dto in tables:
+                tbl = dto.get('table', {})
+                pe = tbl.get('328664', [''])[0] or tbl.get('f23', [''])[0]
+                pb = tbl.get('328773', [''])[0] or tbl.get('f24', [''])[0]
+                roe = tbl.get('100000000003466', [''])[0] or tbl.get('f129', [''])[0]
+                if pe: result['pe'] = str(pe)[:20]
+                if pb: result['pb'] = str(pb)[:20]
+                if roe: result['roe'] = str(roe)[:20]
+                if any([pe, pb, roe]):
+                    break
+        except Exception:
+            pass
+    # 回退到 pywencai
+    if not any(result.values()):
+        try:
+            r = pywencai.get(query=f'{code} 市盈率 市净率 ROE', query_type='stock', perpage=1)
+            tbl = r.get('tableV1')
+            if tbl is not None and hasattr(tbl, 'to_dict'):
+                rows = tbl.to_dict('records')
+                if rows:
+                    row = rows[0]
+                    if not result['pe']: result['pe'] = str(row.get('pe_ttm', ''))
+                    if not result['pb']: result['pb'] = str(row.get('市净率', ''))
+                    if not result['roe']: result['roe'] = str(row.get('加权roe', ''))
+        except Exception:
+            pass
+    return result
+
+
+def fetch_margin_data(code, name):
+    """获取两融数据（pywencai）"""
+    if pywencai is None:
+        return None  # pywencai not installed
+    try:
+        mkt = "sz" if code.startswith(("0","3")) else "sh"
+        r = pywencai.get(query=f'{mkt}{code} 融资融券 融资余额 融券余额', query_type='stock', perpage=1)
+        tbl = r.get('tableV1')
+        if tbl is not None and hasattr(tbl, 'to_dict'):
+            rows = tbl.to_dict('records')
+            if rows:
+                row = rows[0]
+                def _to_num(v):
+                    try: return float(v)
+                    except: return 0.0
+                return {
+                    "融资余额": _to_num(row.get("融资余额", 0)),
+                    "融券余额": _to_num(row.get("融券余额", 0)),
+                    "融资买入额": _to_num(row.get("融资买入额", 0)),
+                    "融资偿还额": _to_num(row.get("融资偿还额", 0)),
+                    "融资余额增速": _to_num(row.get("融资余额增速", 0)),
+                    "融资融券余额": _to_num(row.get("融资融券余额", 0)),
+                }
+    except Exception:
+        pass
+    return None
+
+
+def _calc_rsi_for_pattern(cl):
+    if len(cl) < 15:
+        return 50
+    g, l = [], []
+    for i in range(1, len(cl)):
+        d = cl[i] - cl[i-1]
+        g.append(d if d > 0 else 0)
+        l.append(-d if d < 0 else 0)
+    ag = sum(g[-14:]) / 14
+    al = sum(l[-14:]) / 14
+    if al == 0:
+        return 100
+    return 100 - 100 / (1 + ag / al)
+
+
+def run_pattern_recognition(code, closes):
+    """对单只股票做历史模式识别"""
+    if len(closes) < 30:
+        return None
+    
+    def ma(data, period):
+        if len(data) < period:
+            return data[-1]
+        return sum(data[-period:]) / period
+    
+    cur_price = closes[-1]
+    cur_ma5 = ma(closes, 5)
+    cur_ma10 = ma(closes, 10)
+    cur_ma20 = ma(closes, 20)
+    cur_rsi = _calc_rsi_for_pattern(closes)
+    cur_rsi_zone = '超买' if cur_rsi > 70 else ('超卖' if cur_rsi < 30 else '中性')
+    cur_trend = '上升' if cur_price > cur_ma20 else '下降'
+    cur_macd = '金叉' if cur_ma5 > cur_ma10 else '死叉'
+    
+    similar_5d, similar_10d = [], []
+    for idx in range(20, len(closes) - 11):
+        h_rsi = _calc_rsi_for_pattern(closes[:idx+1])
+        h_ma5 = ma(closes[:idx+1], 5)
+        h_ma10 = ma(closes[:idx+1], 10)
+        h_ma20 = ma(closes[:idx+1], 20)
+        h_price = closes[idx]
+        h_rsi_zone = '超买' if h_rsi > 70 else ('超卖' if h_rsi < 30 else '中性')
+        h_trend = '上升' if h_price > h_ma20 else '下降'
+        h_macd = '金叉' if h_ma5 > h_ma10 else '死叉'
+        if h_rsi_zone == cur_rsi_zone and h_trend == cur_trend and h_macd == cur_macd:
+            similar_5d.append((closes[idx+5] - closes[idx]) / closes[idx] * 100)
+            similar_10d.append((closes[idx+10] - closes[idx]) / closes[idx] * 100)
+    
+    # 放宽匹配
+    if len(similar_5d) < 3:
+        for idx in range(20, len(closes) - 11):
+            h_rsi = _calc_rsi_for_pattern(closes[:idx+1])
+            h_price = closes[idx]
+            h_ma20 = ma(closes[:idx+1], 20)
+            h_rsi_zone = '超买' if h_rsi > 70 else ('超卖' if h_rsi < 30 else '中性')
+            h_trend = '上升' if h_price > h_ma20 else '下降'
+            if h_rsi_zone == cur_rsi_zone and h_trend == cur_trend:
+                similar_5d.append((closes[idx+5] - closes[idx]) / closes[idx] * 100)
+                similar_10d.append((closes[idx+10] - closes[idx]) / closes[idx] * 100)
+    
+    if similar_5d:
+        avg_5 = sum(similar_5d) / len(similar_5d)
+        avg_10 = sum(similar_10d) / len(similar_10d)
+        win_5 = sum(1 for r in similar_5d if r > 0) / len(similar_5d) * 100
+        win_10 = sum(1 for r in similar_10d if r > 0) / len(similar_10d) * 100
+        return {
+            "rsi": round(cur_rsi, 1),
+            "rsi_zone": cur_rsi_zone,
+            "trend": cur_trend,
+            "macd": cur_macd,
+            "ma5": round(cur_ma5, 2),
+            "ma10": round(cur_ma10, 2),
+            "ma20": round(cur_ma20, 2),
+            "sample_5d": len(similar_5d),
+            "avg_5d": round(avg_5, 2),
+            "win_5d": round(win_5, 1),
+            "sample_10d": len(similar_10d),
+            "avg_10d": round(avg_10, 2),
+            "win_10d": round(win_10, 1),
+        }
+    return None
+
+
+def generate_deepseek_ai_batch(results_batch):
+    """用 DeepSeek API 批量生成 AI 分析（替换本地 LLM）"""
+    if not results_batch:
+        return []
+    # 构造输入
+    # 构造输入
+    sd = ""
+    for i, r in enumerate(results_batch):
+        code = r.get("code", "")
+        name = r.get("name", "")
+        sector = r.get("sector", "")
+        price = r.get("current", 0) or r.get("price", 0)
+        day_c = r.get("day_change", 0) or 0
+        cost = r.get("cost", 0)
+        pnl_pct = r.get("pnl_pct", 0)
+        tech = r.get("technical", {})
+        mf = r.get("money_flow", {})
+        fin = r.get("financial", {})
+        pat = r.get("pattern", {})
+        rsi = tech.get("rsi", 50)
+        macd_s = tech.get("macd_signal", "待确认")
+        dif = tech.get("dif", 0)
+        trend = tech.get("trend", "震荡")
+        vr = tech.get("vol_ratio", 1)
+        zln = mf.get("zhu_li_net", 0)
+        # 新增数据字段
+        ma5 = tech.get("ma5", "")
+        ma10 = tech.get("ma10", "")
+        ma20 = tech.get("ma20", "")
+        to = tech.get("turnover", r.get("turnover", ""))
+        amt = tech.get("amount_wan", r.get("amount_wan", ""))
+        h20 = tech.get("high_20", "")
+        l20 = tech.get("low_20", "")
+        pe = fin.get("pe", "") if fin else ""
+        pb = fin.get("pb", "") if fin else ""
+        roe = fin.get("roe", "") if fin else ""
+        pat_str = ""
+        if pat:
+            for k,v in [("head_and_shoulders_top","头肩顶"),("double_bottom","双底"),("double_top","M顶"),("falling_wedge","下降楔形"),("bull_flag","多头旗形")]:
+                if pat.get(k): pat_str += v + " "
+        sd += f'{i+1}. {name}({code}) {sector} 现{price:.2f}({day_c:+.1f}%) '
+        sd += f'本{cost:.2f}(盈亏{pnl_pct:+.1f}%) RSI:{rsi:.0f} {macd_s}(DIF{dif:.1f}) {trend} '
+        sd += f'量比{vr:.1f} 换手{to}% 成交{amt}万 主力{zln:.0f}万 '
+        sd += f'MA5:{ma5} MA10:{ma10} MA20:{ma20} 20高:{h20} 20低:{l20} '
+        sd += f'PE:{pe} PB:{pb} ROE:{roe}% 形态:{pat_str}\n'
+
+    try:
+        resp = _http_requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer sk-c6e0a0f9b7554680b1c4d81e2e5324e2"
+            },
+            json={
+                "model": "deepseek-v4-flash",
+                "messages": [
+                    {"role": "system", "content": "A股分析师。输出JSON数组。"},
+                    {'role': 'user', 'content': f'持仓数据：\n{sd}\n\n分析每只股票技术面、资金面、估值面。\n返回JSON数组，每个元素：{{"name":"股票名","advice":"持有/观望/减仓/卖出","sentiment":0-100,"summary":"15字观点","detailed":"30-50字分析","target":目标价,"stop":止损价,"confidence":"高/中/低"}}\n只返回JSON。',}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 4000
+            },
+            timeout=180
+        )
+        content = resp.json().get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+        if content.startswith('```'):
+            parts = content.split('```')
+            content = parts[1] if len(parts) > 1 else content
+            if content.startswith('json'):
+                content = content[4:]
+        ai_r = json.loads(content)
+        results = []
+        for ai in ai_r:
+            results.append({
+                'advice': ai.get('advice', '观望'),
+                'sentiment': ai.get('sentiment', 50),
+                'summary': ai.get('summary', ''),
+                'detailed': ai.get('detailed', ''),
+                'target': ai.get('target', 0),
+                'stop': ai.get('stop', 0),
+                'confidence': ai.get('confidence', '中'),
+            })
+        return results
+    except Exception as e:
+        print(f'[DeepSeek AI error] {e}')
+        return []
 def load_json(user_key, key):
     cfg = USERS[user_key]
     path = cfg[key]
@@ -950,14 +1284,16 @@ def api_get_portfolio(user_key):
         for r in data['results']:
             code = r['code']
             if not r.get('money_flow'):
-                r['money_flow'] = fetch_money_flow(code)
+                r['money_flow'] = fetch_money_flow(code, r.get('name', ''))
             if not r.get('order_book'):
                 q = quotes.get(code, {})
                 r['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
             # 用新的资金/盘口数据更新StockHolmes评分
             tech = r.get('technical', {})
             if tech and (r.get('money_flow') or r.get('order_book')):
-                r['stockholmes'] = stockholmes_rules(tech, money_flow=r.get('money_flow'), order_book=r.get('order_book'))
+                r['stockholmes'] = stockholmes_rules(tech, money_flow=r.get('money_flow'), order_book=r.get('order_book'),
+                    financial=r.get('financial'), pattern=r.get('pattern'),
+                    turnover=r.get('turnover'), amount_wan=r.get('amount_wan'), day_change=r.get('day_change'))
     return jsonify(data)
 
 
@@ -1015,6 +1351,9 @@ def api_refresh_portfolio(user_key):
             r['position_cost'] = cost
             r['pnl'] = round(r['position_value'] - cost, 2)
             r['pnl_pct'] = round(r['pnl'] / cost * 100, 2) if cost > 0 else 0
+            # 保存换手率和成交额（从腾讯API直接获取）
+            r['turnover'] = q.get('turnover', 0)
+            r['amount_wan'] = q.get('amount_wan', 0)
 
             tech = None
             klines = fetch_kline_tencent(code, days=70)
@@ -1022,17 +1361,31 @@ def api_refresh_portfolio(user_key):
                 tech = compute_indicators(klines)
                 if tech:
                     r['technical'] = tech
-                    r['stockholmes'] = stockholmes_rules(tech, money_flow=r.get('money_flow'), order_book=r.get('order_book'))
+                    r['stockholmes'] = stockholmes_rules(tech, money_flow=r.get('money_flow'), order_book=r.get('order_book'),
+                    financial=r.get('financial'), pattern=r.get('pattern'),
+                    turnover=r.get('turnover'), amount_wan=r.get('amount_wan'), day_change=r.get('day_change'))
                     updated += 1
 
             # 资金流向
             if 'money_flow' not in r or not r['money_flow']:
-                r['money_flow'] = fetch_money_flow(code)
+                r['money_flow'] = fetch_money_flow(code, r.get('name', ''))
             # 5档盘口
             if 'order_book' not in r or not r['order_book']:
                 r['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
             else:
                 r['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
+
+            # 板块行情数据（快速，东方财富API一次调用）
+            if r.get('sector') and not r.get('sector_data'):
+                sd = fetch_sector_analysis(r['sector'])
+                if sd:
+                    r['sector_data'] = sd
+            
+            # 财务指标（mx-data，快速）
+            if not r.get('financial'):
+                fin = fetch_financial_data(code, r['name'])
+                if any(fin.values()):
+                    r['financial'] = fin
 
             if tech and not check_report_exists(code, r['name'], user_key):
                 try:
@@ -1053,7 +1406,6 @@ def api_refresh_portfolio(user_key):
         'reports_generated': reports_gen,
         'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
-
 
 def import_watchlist_from_reports(user_key):
     """从自选股分析报告HTML中提取股票并导入watchlist.json"""
@@ -1126,7 +1478,7 @@ def api_get_watchlist(user_key):
             for s in g['stocks']:
                 code = s['code']
                 if not s.get('money_flow'):
-                    s['money_flow'] = fetch_money_flow(code)
+                    s['money_flow'] = fetch_money_flow(code, s.get('name', ''))
                 if not s.get('order_book'):
                     q = quotes.get(code, {})
                     s['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
@@ -1200,7 +1552,7 @@ def api_refresh_watchlist(user_key):
                 s['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
                 # 资金流向
                 if 'money_flow' not in s or not s['money_flow']:
-                    s['money_flow'] = fetch_money_flow(code)
+                    s['money_flow'] = fetch_money_flow(code, s.get('name', ''))
                 # 获取K线数据和技术指标
                 klines = fetch_kline_tencent(code, days=70)
                 tech = compute_indicators(klines) if klines else None
@@ -1234,6 +1586,52 @@ def api_refresh_watchlist(user_key):
                     'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
 
+@app.route('/api/<user_key>/watchlist/refresh-single', methods=['POST'])
+def api_refresh_watchlist_single(user_key):
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = request.get_json()
+    code = data.get('code', '') if data else ''
+    if not code:
+        return jsonify({'error': 'code required'}), 400
+    wl = load_json(user_key, 'watchlist')
+    found = None
+    for g in wl['groups']:
+        for s in g.get('stocks', []):
+            if s.get('code') == code:
+                found = s
+                break
+    if not found:
+        return jsonify({'error': 'stock not found in watchlist'}), 404
+    try:
+        q = fetch_realtime_quote([code]).get(code, {})
+        if q:
+            found['price'] = q['price']
+            found['change_pct'] = round(q['change_pct'], 2)
+            found['update_time'] = q['update_time']
+            found['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
+        found['money_flow'] = fetch_money_flow(code, found.get('name', '')) or {}
+        klines = fetch_kline_tencent(code, days=70)
+        tech = compute_indicators(klines) if klines else None
+        if tech:
+            found['technical'] = {
+                'ma5': tech.get('ma5'), 'ma10': tech.get('ma10'),
+                'ma20': tech.get('ma20'), 'ma60': tech.get('ma60'),
+                'rsi': tech.get('rsi'), 'vol_ratio': tech.get('vol_ratio'),
+                'macd_signal': tech.get('macd_signal'), 'trend': tech.get('trend'),
+                'bias5': tech.get('bias5'), 'change_5d': tech.get('change_5d'),
+            }
+            found['stockholmes'] = stockholmes_rules(tech,
+                money_flow=found.get('money_flow'),
+                order_book=found.get('order_book'))
+        save_json(user_key, 'watchlist', wl)
+        return jsonify({'ok': True, 'data': wl,
+                        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
+    except Exception as e:
+        print(f'[watchlist refresh-single error] {code}: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/<user_key>/watchlist/ai-analyze', methods=['POST'])
 def api_ai_analyze_watchlist(user_key):
     if user_key not in USERS:
@@ -1249,7 +1647,7 @@ def api_ai_analyze_watchlist(user_key):
                  'change_pct': s.get('change_pct', 0)}
             # 确保有资金流向和盘口数据
             if 'money_flow' not in s or not s.get('money_flow'):
-                s['money_flow'] = fetch_money_flow(code)
+                s['money_flow'] = fetch_money_flow(code, s.get('name', ''))
             mf = s.get('money_flow', {})
             ob = s.get('order_book', {})
             ai = generate_ai_analysis(code, name, tech, q, money_flow=mf, order_book=ob) if tech else {}
@@ -1312,8 +1710,9 @@ def api_generate_report(user_key, code):
     klines = fetch_kline_tencent(code, days=70)
     tech = compute_indicators(klines) if klines else None
     quote = fetch_realtime_quote([code]).get(code, {})
+    mf = fetch_money_flow(code, name) or {}
+    ob = {'bids': quote.get('bids', []), 'asks': quote.get('asks', [])} if quote else {}
     sh = stockholmes_rules(tech, money_flow=mf, order_book=ob) if tech else {}
-    mf = fetch_money_flow(code) or {}
     ob = {'bids': quote.get('bids', []), 'asks': quote.get('asks', [])} if quote else {}
     ai = generate_ai_analysis(code, name, tech, quote, money_flow=mf, order_book=ob) if tech else {}
     try:
@@ -1468,44 +1867,178 @@ def api_get_news(user_key, code):
 
 @app.route('/api/<user_key>/portfolio/ai-analyze', methods=['POST'])
 def api_ai_analyze_portfolio(user_key):
-    """为没有AI分析的持仓生成AI分析"""
+    """用 DeepSeek 批量生成 AI 分析（替换之前的本地 LLM）"""
     if user_key not in USERS:
         return jsonify({'error': 'not found'}), 404
     data = load_json(user_key, 'portfolio')
+    to_analyze = [r for r in data['results'] if r.get('technical')]
+    if not to_analyze:
+        return jsonify({'ok': True, 'analyzed': 0, 'message': '没有技术数据，先刷新行情'})
+    
+    ai_results = generate_deepseek_ai_batch(to_analyze)
     analyzed = 0
-    failed = 0
-    for r in data['results']:
-        code = r['code']
-        tech = r.get('technical')
-        if not tech:
-            klines = fetch_kline_tencent(code, days=70)
-            if klines:
-                tech = compute_indicators(klines)
-                if tech:
-                    r['technical'] = tech
-        if tech:
-            q = fetch_realtime_quote([code]).get(code, {})
-            mf = fetch_money_flow(code) or {}
-            ob = {'bids': q.get('bids', []), 'asks': q.get('asks', [])} if q else {}
-            r['ai_analysis'] = generate_ai_analysis(code, r['name'], tech, q, money_flow=mf, order_book=ob)
-            if r['ai_analysis'].get('operation_advice'):
-                analyzed += 1
-                sh = r.get('stockholmes', {})
-                if not sh:
-                    sh = stockholmes_rules(tech, money_flow=mf, order_book=ob)
-                    r['stockholmes'] = sh
-                if not check_report_exists(code, r['name'], user_key) or True:
-                    try:
-                        generate_report_html(code, r['name'], tech, q, sh, r['ai_analysis'], user_key, sector=r.get('sector', ''))
-                    except Exception as e:
-                        print(f"[report regen error {code}] {e}")
-            else:
-                failed += 1
-            time.sleep(0.3)
+    for i, r in enumerate(to_analyze):
+        if i < len(ai_results):
+            ai = ai_results[i]
+            r['ai_deepseek'] = {
+                'operation_advice': ai['advice'],
+                'sentiment_score': ai['sentiment'],
+                'analysis_summary': ai['summary'],
+                'analysis_detailed': ai['detailed'],
+                'target_price': str(ai['target']),
+                'stop_loss': str(ai['stop']),
+                'confidence_level': ai['confidence'],
+            }
+            analyzed += 1
 
     save_json(user_key, 'portfolio', data)
-    return jsonify({'ok': True, 'analyzed': analyzed, 'failed': failed, 'data': data})
+    return jsonify({'ok': True, 'analyzed': analyzed, 'data': data})
 
+
+# ===== 新增：三维数据异步加载端点 =====
+
+@app.route('/api/<user_key>/portfolio/deepseek-ai', methods=['POST'])
+def api_deepseek_ai_portfolio(user_key):
+    """用 DeepSeek 批量生成 AI 分析"""
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = load_json(user_key, 'portfolio')
+    # 收集需要分析的股票（跳过已有deepseek的）
+    to_analyze = []
+    for r in data['results']:
+        tech = r.get('technical')
+        if tech and not r.get('ai_deepseek'):
+            to_analyze.append(r)
+    if not to_analyze:
+        # 如果全都有，也重新生成
+        to_analyze = [r for r in data['results'] if r.get('technical')]
+    
+    ai_results = generate_deepseek_ai_batch(to_analyze)
+    for i, r in enumerate(to_analyze):
+        if i < len(ai_results):
+            ai = ai_results[i]
+            r['ai_deepseek'] = {
+                'operation_advice': ai['advice'],
+                'sentiment_score': ai['sentiment'],
+                'analysis_summary': ai['summary'],
+                'analysis_detailed': ai['detailed'],
+                'target_price': str(ai['target']),
+                'stop_loss': str(ai['stop']),
+                'confidence_level': ai['confidence'],
+            }
+    save_json(user_key, 'portfolio', data)
+    return jsonify({'ok': True, 'analyzed': len(ai_results), 'data': data})
+
+
+@app.route('/api/<user_key>/portfolio/financial-data', methods=['POST'])
+def api_financial_data(user_key):
+    """批量获取财务指标 (PE/PB/ROE)"""
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = load_json(user_key, 'portfolio')
+    count = 0
+    for r in data['results']:
+        if not r.get('financial'):
+            fin = fetch_financial_data(r['code'], r['name'])
+            if any(fin.values()):
+                r['financial'] = fin
+                count += 1
+            time.sleep(0.3)
+    save_json(user_key, 'portfolio', data)
+    return jsonify({'ok': True, 'fetched': count, 'data': data})
+
+
+@app.route('/api/<user_key>/portfolio/margin-data', methods=['POST'])
+def api_margin_data(user_key):
+    """批量获取两融数据"""
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = load_json(user_key, 'portfolio')
+    count = 0
+    for r in data['results']:
+        if not r.get('margin'):
+            m = fetch_margin_data(r['code'], r['name'])
+            if m:
+                r['margin'] = m
+                count += 1
+            time.sleep(0.3)
+    save_json(user_key, 'portfolio', data)
+    return jsonify({'ok': True, 'fetched': count, 'data': data})
+
+
+@app.route('/api/<user_key>/portfolio/pattern-data', methods=['POST'])
+def api_pattern_data(user_key):
+    """批量获取历史模式识别"""
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = load_json(user_key, 'portfolio')
+    count = 0
+    for r in data['results']:
+        if not r.get('pattern') and r.get('technical'):
+            # 重新获取K线用于模式识别（需要原始收盘价序列）
+            klines = fetch_kline_tencent(r['code'], days=120)
+            if klines and len(klines) >= 30:
+                closes = [k['close'] for k in klines]
+                p = run_pattern_recognition(r['code'], closes)
+                if p:
+                    r['pattern'] = p
+                    count += 1
+            time.sleep(0.3)
+    save_json(user_key, 'portfolio', data)
+    return jsonify({'ok': True, 'fetched': count, 'data': data})
+
+
+@app.route('/api/<user_key>/portfolio/refresh-enriched', methods=['POST'])
+def api_refresh_enriched(user_key):
+    """一次性刷新所有三维数据（财务+两融+模式识别+DeepSeek AI）"""
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = load_json(user_key, 'portfolio')
+    results = {'financial': 0, 'margin': 0, 'pattern': 0, 'ai': 0}
+    
+    # 财务 + 两融 + 模式识别（串行，每个股票一次过）
+    for r in data['results']:
+        code = r['code']
+        name = r['name']
+        if not r.get('financial'):
+            fin = fetch_financial_data(code, name)
+            if any(fin.values()):
+                r['financial'] = fin
+                results['financial'] += 1
+        if not r.get('margin'):
+            m = fetch_margin_data(code, name)
+            if m:
+                r['margin'] = m
+                results['margin'] += 1
+        if not r.get('pattern') and r.get('technical'):
+            klines = fetch_kline_tencent(code, days=120)
+            if klines and len(klines) >= 30:
+                closes = [k['close'] for k in klines]
+                p = run_pattern_recognition(code, closes)
+                if p:
+                    r['pattern'] = p
+                    results['pattern'] += 1
+        time.sleep(0.3)
+    
+    # DeepSeek AI 批量
+    to_analyze = [r for r in data['results'] if r.get('technical')]
+    ai_results = generate_deepseek_ai_batch(to_analyze)
+    for i, r in enumerate(to_analyze):
+        if i < len(ai_results):
+            ai = ai_results[i]
+            r['ai_deepseek'] = {
+                'operation_advice': ai['advice'],
+                'sentiment_score': ai['sentiment'],
+                'analysis_summary': ai['summary'],
+                'analysis_detailed': ai['detailed'],
+                'target_price': str(ai['target']),
+                'stop_loss': str(ai['stop']),
+                'confidence_level': ai['confidence'],
+            }
+            results['ai'] += 1
+    
+    save_json(user_key, 'portfolio', data)
+    return jsonify({'ok': True, 'results': results, 'data': data})
 
 
 
@@ -1692,6 +2225,106 @@ def api_kol_summarize(user_key):
     if result_container[0]:
         return jsonify({'ok': True, 'result': result_container[0]})
     return jsonify({'error': 'LLM 返回空结果，请重试'}), 500
+
+@app.route('/api/<user_key>/portfolio/refresh-stock', methods=['POST'])
+def api_refresh_single_stock(user_key):
+    """刷新单只股票的全部数据（行情+技术指标+资金流向+财务+模式识别+AI）"""
+    if user_key not in USERS:
+        return jsonify({'error': 'not found'}), 404
+    data = request.get_json(force=True)
+    code = data.get('code', '').strip()
+    if not code:
+        return jsonify({'error': '缺少股票代码'}), 400
+    pf = load_json(user_key, 'portfolio')
+    r = None
+    for item in pf['results']:
+        if item['code'] == code:
+            r = item
+            break
+    if not r:
+        return jsonify({'error': '未找到该股票'}), 404
+
+    # 刷新实时行情
+    quotes = fetch_realtime_quote([code])
+    time.sleep(0.3)
+    q = quotes.get(code)
+    if q:
+        r['current'] = q['price']
+        r['day_change'] = round(q['change_pct'], 2)
+        r['position_value'] = round(q['price'] * r.get('qty', 100))
+        cost = r.get('position_cost', r.get('cost', 0) * r.get('qty', 100))
+        r['position_cost'] = cost
+        r['pnl'] = round(r['position_value'] - cost, 2)
+        r['pnl_pct'] = round(r['pnl'] / cost * 100, 2) if cost > 0 else 0
+        r['turnover'] = q.get('turnover', 0)
+        r['amount_wan'] = q.get('amount_wan', 0)
+
+    # 刷新K线+技术指标
+    klines = fetch_kline_tencent(code, days=70)
+    if klines:
+        tech = compute_indicators(klines)
+        if tech:
+            r['technical'] = tech
+
+    # 资金流向
+    r['money_flow'] = fetch_money_flow(code, r.get('name', ''))
+
+    # 盘口
+    if q:
+        r['order_book'] = {'bids': q.get('bids', []), 'asks': q.get('asks', [])}
+
+    # 财务
+    if not r.get('financial'):
+        fin = fetch_financial_data(code, r.get('name', ''))
+        if any(fin.values()):
+            r['financial'] = fin
+
+    # 两融
+    if not r.get('margin'):
+        m = fetch_margin_data(code, r.get('name', ''))
+        if m:
+            r['margin'] = m
+
+    # 模式识别
+    if r.get('technical') and not r.get('pattern'):
+        pk_lines = fetch_kline_tencent(code, days=120)
+        if pk_lines and len(pk_lines) >= 30:
+            closes = [k['close'] for k in pk_lines]
+            p = run_pattern_recognition(code, closes)
+            if p:
+                r['pattern'] = p
+
+    # StockHolmes评分
+    tech = r.get('technical', {})
+    if tech:
+        r['stockholmes'] = stockholmes_rules(tech,
+            money_flow=r.get('money_flow'), order_book=r.get('order_book'),
+            financial=r.get('financial'), pattern=r.get('pattern'),
+            turnover=r.get('turnover'), amount_wan=r.get('amount_wan'), day_change=r.get('day_change'))
+
+    # DeepSeek AI
+    to_analyze = [r]
+    ai_results = generate_deepseek_ai_batch(to_analyze)
+    if ai_results:
+        ai = ai_results[0]
+        r['ai_deepseek'] = {
+            'operation_advice': ai['advice'],
+            'sentiment_score': ai['sentiment'],
+            'analysis_summary': ai['summary'],
+            'analysis_detailed': ai['detailed'],
+            'target_price': str(ai['target']),
+            'stop_loss': str(ai['stop']),
+            'confidence_level': ai['confidence'],
+        }
+
+    # 重新计算总额
+    pf['total_cost'] = sum(x.get('position_cost', 0) for x in pf['results'])
+    pf['total_value'] = sum(x.get('position_value', 0) for x in pf['results'])
+    pf['total_pnl'] = round(pf['total_value'] - pf['total_cost'], 2)
+    pf['total_pnl_pct'] = round(pf['total_pnl'] / pf['total_cost'] * 100, 2) if pf['total_cost'] > 0 else 0
+    save_json(user_key, 'portfolio', pf)
+    return jsonify({'ok': True, 'data': pf})
+
 
 if __name__ == '__main__':
     print("StockHolmes Interactive Dashboard v2")

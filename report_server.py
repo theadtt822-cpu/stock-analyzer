@@ -55,6 +55,7 @@ INDEX_TEMPLATE = """<!DOCTYPE html>
         .badge-latest {{ background: #c8e6c9; color: #2e7d32; font-weight: bold; }}
         .badge-watchlist {{ background: #f3e5f5; color: #7b1fa2; }}
         .badge-three-d {{ background: #e0f7fa; color: #00838f; }}
+        .badge-midday {{ background: #fff3e0; color: #e65100; }}
         .more-toggle {{ background: none; border: 1px solid #ddd; color: #666; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 6px; display: block; width: 100%; text-align: center; }}
         .more-toggle:hover {{ background: #f5f5f5; border-color: #ccc; }}
         .more-content {{ display: none; }}
@@ -122,12 +123,30 @@ def classify_report(filename):
     if filename.startswith('三维分析报告'):
         if '_最新' in filename:
             return {'type': 'three_d', 'label': '三维分析报告（最新）', 'badge': 'badge-latest'}
+        match = re.search(r'(\d{8})', filename)
+        if match:
+            ts = match.group(1)
+            label = f"三维分析 {ts[:4]}-{ts[4:6]}-{ts[6:8]}"
+            return {'type': 'three_d', 'label': label, 'badge': 'badge-three-d'}
+        return {'type': 'three_d', 'label': '三维分析报告', 'badge': 'badge-three-d'}
+    if filename.startswith('午间复盘'):
+        if '_最新' in filename or '_latest' in filename:
+            return {'type': 'midday', 'label': '午间复盘（最新）', 'badge': 'badge-latest'}
+        match = re.search(r'(\d{8})', filename)
+        if match:
+            ts = match.group(1)
+            label = f"午间复盘 {ts[:4]}-{ts[4:6]}-{ts[6:8]}"
+            return {'type': 'midday', 'label': label, 'badge': 'badge-midday'}
+        return {'type': 'midday', 'label': '午间复盘', 'badge': 'badge-midday'}
+    if filename.startswith('盘后预测'):
+        if '_最新' in filename:
+            return {'type': 'postmarket', 'label': '盘后预测（最新）', 'badge': 'badge-latest'}
         match = re.search(r'(\d{8}_\d{4})', filename)
         if match:
             ts = match.group(1)
-            label = f"三维分析 {ts[:4]}-{ts[4:6]}-{ts[6:8]} {ts[9:11]}:{ts[11:13]}"
-            return {'type': 'three_d', 'label': label, 'badge': 'badge-three-d'}
-        return {'type': 'three_d', 'label': '三维分析报告', 'badge': 'badge-three-d'}
+            label = f"盘后预测 {ts[:4]}-{ts[4:6]}-{ts[6:8]} {ts[9:11]}:{ts[11:13]}"
+            return {'type': 'postmarket', 'label': label, 'badge': 'badge-post'}
+        return {'type': 'postmarket', 'label': '盘后预测', 'badge': 'badge-post'}
     if filename.startswith('自选股分析'):
         if '_最新' in filename:
             return {'type': 'watchlist', 'label': '自选股分析（最新）', 'badge': 'badge-latest'}
@@ -227,7 +246,7 @@ def generate_index(user_key):
             seen.add(fname)
             files.append((fname, fdir if fdir else target_dir))
     
-    daily = []; stock = []; watchlist = []; dashboard = []; three_d = []
+    daily = []; stock = []; watchlist = []; dashboard = []; three_d = []; midday = []; postmarket = []
     for f, fdir in sorted(files, key=lambda x: extract_timestamp(x[0]), reverse=True):
         info = classify_report(f)
         if info:
@@ -236,14 +255,18 @@ def generate_index(user_key):
             elif info['type'] == 'watchlist': watchlist.append(html)
             elif info['type'] == 'dashboard': dashboard.append(html)
             elif info['type'] == 'three_d': three_d.append(html)
+            elif info['type'] == 'midday': midday.append(html)
+            elif info['type'] == 'postmarket': postmarket.append(html)
             else: stock.append(html)
     
-    # Order: 持仓仪表盘, 每日定时, 自选股, 三维分析, 个股报告(最后)
+    # Order: 持仓仪表盘, 每日定时, 盘后预测, 自选股, 三维分析, 个股报告(最后)
     sections = ''
     sections += render_section('持仓仪表盘', '📊', dashboard, 'dashboard')
     sections += render_section('每日定时报告', '📈', daily, 'daily')
+    sections += render_section('盘后预测 & 次日预测', '🔮', postmarket, 'postmarket')
     sections += render_section('自选股分析报告', '👀', watchlist, 'watchlist')
     sections += render_section('三维分析报告', '🕵️‍♂️', three_d, 'three_d')
+    sections += render_section('午间复盘报告', '📊', midday, 'midday')
     sections += render_section('个股分析报告', '🔍', stock, 'stock')
     
     return INDEX_TEMPLATE.format(
