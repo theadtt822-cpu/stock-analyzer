@@ -1,0 +1,2073 @@
+{
+  "results": [
+    {
+      "code": "002384",
+      "name": "东山精密",
+      "sector": "消费电子",
+      "cost": 187.8319,
+      "current": 211.39,
+      "qty": 100,
+      "pnl": 2355.81,
+      "pnl_pct": 12.54,
+      "position_value": 21139,
+      "position_cost": 18783.19,
+      "technical": {
+        "ma5": 197.06,
+        "ma10": 191.68,
+        "ma20": 169.44,
+        "ma60": 120.12,
+        "dif": 22.38,
+        "dea": 20.0,
+        "macd_bar": 4.76,
+        "macd_signal": "金叉",
+        "rsi": 89.1,
+        "vol_ratio": 0.99,
+        "change_5d": 14.95,
+        "high_20": 211.39,
+        "low_20": 119.91,
+        "tushare_close": 211.39,
+        "trend": "多头排列",
+        "bias5": 7.27,
+        "bias20": 24.76
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 73,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "买盘堆积(买/卖=13.7倍)，支撑强劲"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(7.3%)，有回落风险",
+          "RSI超买(89>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "买盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "卖出",
+        "sentiment_score": 40,
+        "analysis_summary": "极度超买短线回调风险大",
+        "target_price": "220",
+        "stop_loss": "187",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "东山精密股价创新高，融资客抢先加仓",
+        "summary": "东山精密股价再创历史新高，该股近期呈不断突破新高之势，近一个月累计有11个交易日股价刷新历史纪录。截至09:45，该股目前上涨6.\n04%，股价报198.\n00元，成交3002.\n68万股，成交金额57.\n68亿元，换手率2.\n17%，该股最新A股总市值达3626.\n58亿元，该股A股流通市值2744.\n92亿元。\n证券时报·数据宝统计显示，东山精密所属的电子行业，目前整体涨幅为5.\n06%，行业内，目前股价上涨的有455只，涨停的有大普微-U、合力泰等10只。股价下跌的有46只，跌幅居前的有*ST宁视、*ST闻泰、ST清越等，跌幅分别为8.\n76%、5.\n01%、3.\n81%。\n两融数据显示"
+      },
+      "rule_score": 67,
+      "day_change": 0.15,
+      "_user_current": 191.88,
+      "pre_close": 191.88,
+      "change_pct": 2.76,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 211.38,
+            "volume": 89
+          },
+          {
+            "price": 211.37,
+            "volume": 179
+          },
+          {
+            "price": 211.36,
+            "volume": 2358
+          },
+          {
+            "price": 211.35,
+            "volume": 8
+          },
+          {
+            "price": 211.32,
+            "volume": 1
+          }
+        ],
+        "asks": [
+          {
+            "price": 211.39,
+            "volume": 7
+          },
+          {
+            "price": 211.4,
+            "volume": 27
+          },
+          {
+            "price": 211.41,
+            "volume": 10
+          },
+          {
+            "price": 211.42,
+            "volume": 127
+          },
+          {
+            "price": 211.43,
+            "volume": 22
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 89.1,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 197.06,
+        "ma10": 191.68,
+        "ma20": 169.44,
+        "sample_5d": 21,
+        "avg_5d": 7.38,
+        "win_5d": 71.4,
+        "sample_10d": 21,
+        "avg_10d": 9.92,
+        "win_10d": 66.7
+      },
+      "ai_deepseek": {
+        "operation_advice": "减仓",
+        "sentiment_score": 40,
+        "analysis_summary": "RSI超买，获利了结",
+        "analysis_detailed": "RSI高达89，严重超买，短期回调风险大，建议减仓锁定利润，目标价211.39，止损169.44。",
+        "target_price": "211.39",
+        "stop_loss": "169.44",
+        "confidence_level": "高"
+      },
+      "turnover": 6.46,
+      "amount_wan": 895393.0
+    },
+    {
+      "code": "300136",
+      "name": "信维通信",
+      "sector": "通信设备",
+      "cost": 83.8108,
+      "current": 101.35,
+      "qty": 100,
+      "pnl": 1753.92,
+      "pnl_pct": 20.93,
+      "position_value": 10135,
+      "position_cost": 8381.08,
+      "technical": {
+        "ma5": 95.41,
+        "ma10": 89.72,
+        "ma20": 79.56,
+        "ma60": 73.01,
+        "dif": 8.13,
+        "dea": 5.56,
+        "macd_bar": 5.14,
+        "macd_signal": "金叉",
+        "rsi": 86.4,
+        "vol_ratio": 0.8,
+        "change_5d": 15.84,
+        "high_20": 101.65,
+        "low_20": 63.54,
+        "tushare_close": 101.35,
+        "trend": "多头排列",
+        "bias5": 6.23,
+        "bias20": 27.39
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 57,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(6.2%)，有回落风险",
+          "RSI超买(86>70)，短期回调风险高",
+          "卖盘堆积(买/卖=0.3倍)，抛压较重"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "卖盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 65,
+        "analysis_summary": "多头强势但RSI严重超买，谨防回调",
+        "target_price": "108.5",
+        "stop_loss": "87.3",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "信维通信盘中创历史新高",
+        "summary": "信维通信股价创出历史新高，截至9:36，该股上涨3.83%，股价报94.80元，成交量1876.81万股，成交金额17.59亿元，换手率2.27%，该股最新A股总市值达917.26亿元，该股A股流通市值782.29亿元。　　证券时报·数据宝统计显示，信维通信所属的电子行业，目前整体涨幅为3.41%，行业内，目前股价上涨的有431只，涨停的有通富微电、博敏电子等4只。股价下跌的有67只，跌幅居前的有*ST宁视、*ST闻泰、华特气体等，跌幅分别为5.78%、5.01%、5.00%。　　两融数据显示，该股最新（4月30日）两融余额为55.93亿元，其中，融资余额为55.40亿元，近10日增加14.0"
+      },
+      "rule_score": 52,
+      "day_change": -0.3,
+      "_user_current": 97.23,
+      "pre_close": 97.23,
+      "change_pct": 6.5,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 101.35,
+            "volume": 141
+          },
+          {
+            "price": 101.34,
+            "volume": 35
+          },
+          {
+            "price": 101.33,
+            "volume": 203
+          },
+          {
+            "price": 101.32,
+            "volume": 255
+          },
+          {
+            "price": 101.31,
+            "volume": 212
+          }
+        ],
+        "asks": [
+          {
+            "price": 101.36,
+            "volume": 45
+          },
+          {
+            "price": 101.37,
+            "volume": 475
+          },
+          {
+            "price": 101.38,
+            "volume": 345
+          },
+          {
+            "price": 101.39,
+            "volume": 319
+          },
+          {
+            "price": 101.4,
+            "volume": 1893
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 86.4,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 95.41,
+        "ma10": 89.72,
+        "ma20": 79.56,
+        "sample_5d": 30,
+        "avg_5d": 16.62,
+        "win_5d": 93.3,
+        "sample_10d": 30,
+        "avg_10d": 35.93,
+        "win_10d": 100.0
+      },
+      "ai_deepseek": {
+        "operation_advice": "减仓",
+        "sentiment_score": 35,
+        "analysis_summary": "获利丰厚，超买回落",
+        "analysis_detailed": "RSI86超买，换手率高，获利盘涌出，建议减仓止盈，目标价101.65，止损79.56。",
+        "target_price": "101.65",
+        "stop_loss": "79.56",
+        "confidence_level": "高"
+      },
+      "turnover": 10.41,
+      "amount_wan": 858859.0
+    },
+    {
+      "code": "600330",
+      "name": "天通股份",
+      "sector": "磁性材料",
+      "cost": 26.0153,
+      "current": 29.16,
+      "qty": 100,
+      "pnl": 314.47,
+      "pnl_pct": 12.09,
+      "position_value": 2916,
+      "position_cost": 2601.53,
+      "technical": {
+        "ma5": 27.54,
+        "ma10": 26.89,
+        "ma20": 23.72,
+        "ma60": 19.15,
+        "dif": 2.7,
+        "dea": 2.33,
+        "macd_bar": 0.74,
+        "macd_signal": "金叉",
+        "rsi": 79.2,
+        "vol_ratio": 0.87,
+        "change_5d": 10.37,
+        "high_20": 29.16,
+        "low_20": 17.91,
+        "tushare_close": 29.16,
+        "trend": "多头排列",
+        "bias5": 5.88,
+        "bias20": 22.93
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 61,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(5.9%)，有回落风险",
+          "RSI超买(79>70)，短期回调风险高",
+          "卖盘占优(买/卖=0.5倍)"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "卖盘占优"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 72,
+        "analysis_summary": "多头趋势完好但RSI偏高短线谨慎",
+        "target_price": "31.5",
+        "stop_loss": "25.8",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "天通股份:天通股份实际控制人之一致行动人减持股份计划公告",
+        "summary": "\n| 证券代码：600330 | 证券简称：天通股份 | 公告编号：2026-031 |\n|- |- |- |\n\n\n\n\n本公司董事会、全体董事及相关股东保证本公告内容不存在任何虚假记载、误导性陈述或者重大遗漏，并对其内容的真实性、准确性和完整性承担法律责任。\n\n重要内容提示：\n\n 股东持股的基本情况：\n\n天通控股股份有限公司（以下简称“公司”）实际控制人潘建清持有公司无限售条件流通股 57,306,180 股，占公司总股本的 4.65%；其控制的天通高新集团有限公司（公司控股股东，以下简称“天通高新”）持有公司无限售条件流通股 129,561,810 股，占公司总股本的 10.50%；股东潘"
+      },
+      "rule_score": 58,
+      "day_change": 4.22,
+      "_user_current": 27.01,
+      "pre_close": 27.01,
+      "change_pct": -3.16,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 29.16,
+            "volume": 145
+          },
+          {
+            "price": 29.15,
+            "volume": 337
+          },
+          {
+            "price": 29.14,
+            "volume": 238
+          },
+          {
+            "price": 29.13,
+            "volume": 122
+          },
+          {
+            "price": 29.12,
+            "volume": 466
+          }
+        ],
+        "asks": [
+          {
+            "price": 29.17,
+            "volume": 89
+          },
+          {
+            "price": 29.18,
+            "volume": 241
+          },
+          {
+            "price": 29.19,
+            "volume": 208
+          },
+          {
+            "price": 29.2,
+            "volume": 1806
+          },
+          {
+            "price": 29.21,
+            "volume": 100
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 79.2,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 27.54,
+        "ma10": 26.89,
+        "ma20": 23.72,
+        "sample_5d": 16,
+        "avg_5d": 2.39,
+        "win_5d": 56.2,
+        "sample_10d": 16,
+        "avg_10d": 9.07,
+        "win_10d": 75.0
+      },
+      "ai_deepseek": {
+        "operation_advice": "持有",
+        "sentiment_score": 65,
+        "analysis_summary": "多头排列，量价配合",
+        "analysis_detailed": "均线多头，量比正常，涨幅温和，可继续持有，关注RSI79是否继续上行，目标价29.16，止损23.72。",
+        "target_price": "29.16",
+        "stop_loss": "23.72",
+        "confidence_level": "中"
+      },
+      "turnover": 16.62,
+      "amount_wan": 2050571.0
+    },
+    {
+      "code": "603083",
+      "name": "剑桥科技",
+      "sector": "光模块",
+      "cost": 169.1417,
+      "current": 189.84,
+      "qty": 100,
+      "pnl": 2069.83,
+      "pnl_pct": 12.24,
+      "position_value": 18984,
+      "position_cost": 16914.17,
+      "technical": {
+        "ma5": 179.76,
+        "ma10": 169.77,
+        "ma20": 149.85,
+        "ma60": 122.42,
+        "dif": 17.59,
+        "dea": 14.2,
+        "macd_bar": 6.78,
+        "macd_signal": "金叉",
+        "rsi": 81.6,
+        "vol_ratio": 0.9,
+        "change_5d": 22.33,
+        "high_20": 189.84,
+        "low_20": 111.55,
+        "tushare_close": 189.84,
+        "trend": "多头排列",
+        "bias5": 5.61,
+        "bias20": 26.69
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 57,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(5.6%)，有回落风险",
+          "RSI超买(82>70)，短期回调风险高",
+          "卖盘堆积(买/卖=0.0倍)，抛压较重"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "卖盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 65,
+        "analysis_summary": "多头强势但RSI严重超买，量价背离警惕回调",
+        "target_price": "200.0",
+        "stop_loss": "172.8",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "剑桥科技一季度净利同比大增276.44% 高速光模块成核心增长引擎",
+        "summary": "剑桥科技(603083)4月27日晚间发布的2026年一季报显示，公司业绩实现爆发式增长。今年一季度，公司实现营业收入12.\n87亿元，同比增长43.\n98%；归母净利润1.\n18亿元，同比增长276.\n44%；扣非归母净利润1.\n17亿元，同比增长285.\n90%，高速光模块业务规模增加驱动业绩高增长。\n报告期内，剑桥科技经营活动产生的现金流量净额为-2.\n19亿元，主要因业务持续扩张、战略性增加关键物料储备等原因，导致货款支付增加，公司表示将加强应收账款管理与现金流统筹，保障经营活动稳健运行。公司称正加快推进海内外产能扩张，助力应对国际贸易挑战与持续交付压力。\n剑桥科技专注于ICT及光通信"
+      },
+      "rule_score": 48,
+      "day_change": 3.13,
+      "_user_current": 179.22,
+      "pre_close": 179.22,
+      "change_pct": 2.43,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 189.8,
+            "volume": 5
+          },
+          {
+            "price": 189.79,
+            "volume": 1
+          },
+          {
+            "price": 189.78,
+            "volume": 10
+          },
+          {
+            "price": 189.75,
+            "volume": 2
+          },
+          {
+            "price": 189.74,
+            "volume": 9
+          }
+        ],
+        "asks": [
+          {
+            "price": 189.84,
+            "volume": 47
+          },
+          {
+            "price": 189.85,
+            "volume": 512
+          },
+          {
+            "price": 189.86,
+            "volume": 28
+          },
+          {
+            "price": 189.87,
+            "volume": 10
+          },
+          {
+            "price": 189.88,
+            "volume": 7
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 81.6,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 179.76,
+        "ma10": 169.77,
+        "ma20": 149.85,
+        "sample_5d": 5,
+        "avg_5d": 2.63,
+        "win_5d": 60.0,
+        "sample_10d": 5,
+        "avg_10d": 13.99,
+        "win_10d": 80.0
+      },
+      "ai_deepseek": {
+        "operation_advice": "持有",
+        "sentiment_score": 60,
+        "analysis_summary": "光模块龙头，趋势完好",
+        "analysis_detailed": "多头排列，RSI82但未极端放量，有望继续冲高，持有看前高，目标价189.84，止损149.85。",
+        "target_price": "189.84",
+        "stop_loss": "149.85",
+        "confidence_level": "中"
+      },
+      "turnover": 10.54,
+      "amount_wan": 290541.0
+    },
+    {
+      "code": "603738",
+      "name": "泰晶科技",
+      "sector": "电子元器件",
+      "cost": 38.7104,
+      "current": 47.01,
+      "qty": 100,
+      "pnl": 829.96,
+      "pnl_pct": 21.44,
+      "position_value": 4701,
+      "position_cost": 3871.04,
+      "technical": {
+        "ma5": 41.35,
+        "ma10": 39.42,
+        "ma20": 33.92,
+        "ma60": 25.82,
+        "dif": 4.6,
+        "dea": 3.67,
+        "macd_bar": 1.86,
+        "macd_signal": "金叉",
+        "rsi": 83.0,
+        "vol_ratio": 0.47,
+        "change_5d": 29.86,
+        "high_20": 47.01,
+        "low_20": 25.39,
+        "tushare_close": 47.01,
+        "trend": "多头排列",
+        "bias5": 13.69,
+        "bias20": 38.59
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 65,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(13.7%)，有回落风险",
+          "RSI超买(83>70)，短期回调风险高",
+          "缩量(量比0.47)，交投清淡"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": ""
+      },
+      "ai_analysis": {
+        "operation_advice": "买入",
+        "sentiment_score": 82,
+        "analysis_summary": "涨停强势多头排列，RSI偏高需防回调",
+        "target_price": "51.7",
+        "stop_loss": "39.2",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "泰晶科技2025年营收增长14.94%  第四季度单季净利同比增逾4倍",
+        "summary": "泰晶科技2025年营收增长14.\n94%第四季度单季净利同比增逾4倍来源：证券时报网作者：欧阳佟2026-04-23 09:23字号超大标准4月22日晚，泰晶科技(603738)发布2025年年报。公司2025年实现营业收入9.\n44亿元，同比增长14.\n94%，实现归母净利润5222.\n44万元。其中，公司在2025年第四季度实现归母净利润1720.\n07万元，同比增长444.\n11%，环比增长32.\n51%。\n年报显示，公司在2025年产生股权激励费用约2272万元。随着摊销周期推进，2026年该项费用对业绩影响将显著降低。报告期内，公司经营活动现金流净额1.\n22亿元，同比增长11.\n5"
+      },
+      "rule_score": 64,
+      "day_change": 9.99,
+      "_user_current": 38.85,
+      "pre_close": 38.85,
+      "change_pct": 1.38,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 47.01,
+            "volume": 41887
+          },
+          {
+            "price": 47.0,
+            "volume": 1803
+          },
+          {
+            "price": 46.99,
+            "volume": 61
+          },
+          {
+            "price": 46.98,
+            "volume": 24
+          },
+          {
+            "price": 46.97,
+            "volume": 6
+          }
+        ],
+        "asks": [
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 83.0,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 41.35,
+        "ma10": 39.42,
+        "ma20": 33.92,
+        "sample_5d": 17,
+        "avg_5d": 2.53,
+        "win_5d": 41.2,
+        "sample_10d": 17,
+        "avg_10d": 5.12,
+        "win_10d": 70.6
+      },
+      "ai_deepseek": {
+        "operation_advice": "减仓",
+        "sentiment_score": 30,
+        "analysis_summary": "涨停封板，谨防开板",
+        "analysis_detailed": "涨停但量比仅0.5，封单不强，RSI83超买，明日高开可减仓，目标价47.01，止损33.92。",
+        "target_price": "47.01",
+        "stop_loss": "33.92",
+        "confidence_level": "高"
+      },
+      "turnover": 5.15,
+      "amount_wan": 198921.0
+    },
+    {
+      "code": "002428",
+      "name": "云南锗业",
+      "sector": "稀有金属",
+      "cost": 73.4207,
+      "current": 86.07,
+      "qty": 100,
+      "pnl": 1264.93,
+      "pnl_pct": 17.23,
+      "position_value": 8607,
+      "position_cost": 7342.07,
+      "technical": {
+        "ma5": 76.5,
+        "ma10": 75.42,
+        "ma20": 67.35,
+        "ma60": 50.83,
+        "dif": 7.67,
+        "dea": 6.7,
+        "macd_bar": 1.94,
+        "macd_signal": "金叉",
+        "rsi": 81.2,
+        "vol_ratio": 1.09,
+        "change_5d": 23.52,
+        "high_20": 86.07,
+        "low_20": 54.25,
+        "tushare_close": 86.07,
+        "trend": "多头排列",
+        "bias5": 12.51,
+        "bias20": 27.8
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 73,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "买盘堆积(买/卖=2.7倍)，支撑强劲"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(12.5%)，有回落风险",
+          "RSI超买(81>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "买盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 68,
+        "analysis_summary": "多头趋势完好但短线严重超买，宜持有待回调",
+        "target_price": "92.0",
+        "stop_loss": "65.5",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "云南锗业",
+        "summary": "业务领域锗主要应用在太阳能电池、红外光学、光纤、PET催化剂、合金、医疗保健等领域。\n主要股东1.\n临沧飞翔冶炼有限责任公司35,012,160 37.\n410境内法人股2.\n云南省核工业二O九地质大队18,720,000 20.\n000国有法人股3.\n深圳市盛桥投资管理有限公司9,000,000 9.\n610境内法人股4.\n云南东兴实业集团有限公司7,899,840 8.\n440境内法人股5.\n吴红平6,552,000 7.\n000自然人持股6.\n区国辉5,616,000 6.\n000自然人持股7.\n蔡明君2,880,000 3.\n080自然人持股8.\n罗洁洁2,700,000 2.\n880"
+      },
+      "rule_score": 72,
+      "day_change": 7.32,
+      "_user_current": 77.01,
+      "pre_close": 77.01,
+      "change_pct": 10.0,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 86.06,
+            "volume": 690
+          },
+          {
+            "price": 86.05,
+            "volume": 1
+          },
+          {
+            "price": 86.03,
+            "volume": 844
+          },
+          {
+            "price": 86.02,
+            "volume": 8
+          },
+          {
+            "price": 86.01,
+            "volume": 976
+          }
+        ],
+        "asks": [
+          {
+            "price": 86.07,
+            "volume": 865
+          },
+          {
+            "price": 86.08,
+            "volume": 25
+          },
+          {
+            "price": 86.09,
+            "volume": 1
+          },
+          {
+            "price": 86.1,
+            "volume": 20
+          },
+          {
+            "price": 86.11,
+            "volume": 20
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 81.2,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 76.5,
+        "ma10": 75.42,
+        "ma20": 67.35,
+        "sample_5d": 18,
+        "avg_5d": -0.18,
+        "win_5d": 55.6,
+        "sample_10d": 18,
+        "avg_10d": 4.28,
+        "win_10d": 66.7
+      },
+      "ai_deepseek": {
+        "operation_advice": "减仓",
+        "sentiment_score": 45,
+        "analysis_summary": "涨幅过大，获利回吐",
+        "analysis_detailed": "涨7.3%且RSI81，换手17%显示分歧，建议减仓锁定部分利润，目标价86.07，止损67.35。",
+        "target_price": "86.07",
+        "stop_loss": "67.35",
+        "confidence_level": "高"
+      },
+      "turnover": 17.29,
+      "amount_wan": 1129068.0
+    },
+    {
+      "code": "300390",
+      "name": "天华新能",
+      "sector": "新能源",
+      "cost": 108.7011,
+      "current": 103.45,
+      "qty": 100,
+      "pnl": -525.11,
+      "pnl_pct": -4.83,
+      "position_value": 10345,
+      "position_cost": 10870.11,
+      "technical": {
+        "ma5": 110.05,
+        "ma10": 99.34,
+        "ma20": 88.24,
+        "ma60": 63.4,
+        "dif": 12.52,
+        "dea": 10.97,
+        "macd_bar": 3.1,
+        "macd_signal": "金叉",
+        "rsi": 69.8,
+        "vol_ratio": 1.13,
+        "change_5d": 11.25,
+        "high_20": 114.7,
+        "low_20": 57.02,
+        "tushare_close": 103.45,
+        "trend": "多头排列",
+        "bias5": -6.0,
+        "bias20": 17.24
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 75,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "偏强",
+        "money_flow_status": "",
+        "order_book_status": ""
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 55,
+        "analysis_summary": "中期多头但短期超买回调，观望企稳",
+        "target_price": "115.0",
+        "stop_loss": "90.0",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "天华新能:关于披露2026年第一季度报告的提示性公告",
+        "summary": "证券代码：300390\n证券简称：天华新能\n公告编号：2026-034\n苏州天华新能源科技股份有限公司\n关于披露 2026 年第一季度报告的提示性公告\n本公司及董事会全体成员保证公告内容真实、准确、完整，没有虚假记载、误导性陈述或重大遗漏。\n苏州天华新能源科技股份有限公司《2026 年第一季度报告》全文于 2026 年 4月 24 日 在 中 国 证 监 会 指 定 的 创 业 板 信 息 披 露 媒 体 巨 潮 资 讯 网（http://www.cninfo.com.cn）上披露，敬请投资者注意查阅。\n特此公告。\n苏州天华新能源科技股份有限公司董事会\n2026 年 4 月 23 日\n"
+      },
+      "rule_score": 52,
+      "day_change": -6.87,
+      "_user_current": 114.7,
+      "pre_close": 114.7,
+      "change_pct": 3.8,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 103.45,
+            "volume": 754
+          },
+          {
+            "price": 103.44,
+            "volume": 24
+          },
+          {
+            "price": 103.43,
+            "volume": 82
+          },
+          {
+            "price": 103.42,
+            "volume": 13
+          },
+          {
+            "price": 103.41,
+            "volume": 33
+          }
+        ],
+        "asks": [
+          {
+            "price": 103.46,
+            "volume": 632
+          },
+          {
+            "price": 103.47,
+            "volume": 36
+          },
+          {
+            "price": 103.48,
+            "volume": 25
+          },
+          {
+            "price": 103.49,
+            "volume": 80
+          },
+          {
+            "price": 103.5,
+            "volume": 127
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 69.8,
+        "rsi_zone": "中性",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 110.05,
+        "ma10": 99.34,
+        "ma20": 88.24,
+        "sample_5d": 23,
+        "avg_5d": -0.19,
+        "win_5d": 39.1,
+        "sample_10d": 23,
+        "avg_10d": 8.64,
+        "win_10d": 56.5
+      },
+      "ai_deepseek": {
+        "operation_advice": "观望",
+        "sentiment_score": 40,
+        "analysis_summary": "回踩均线，等待企稳",
+        "analysis_detailed": "回调6.9%，跌破5日线但仍在10日线上，RSI70，观望能否支撑，止损MA20 88.24。",
+        "target_price": "114.7",
+        "stop_loss": "88.24",
+        "confidence_level": "中"
+      },
+      "turnover": 14.21,
+      "amount_wan": 955190.0
+    },
+    {
+      "code": "002149",
+      "name": "西部材料",
+      "sector": "新材料",
+      "cost": 64.3806,
+      "current": 72.44,
+      "qty": 100,
+      "pnl": 805.94,
+      "pnl_pct": 12.52,
+      "position_value": 7244,
+      "position_cost": 6438.06,
+      "technical": {
+        "ma5": 67.4,
+        "ma10": 63.78,
+        "ma20": 57.87,
+        "ma60": 51.82,
+        "dif": 5.32,
+        "dea": 3.82,
+        "macd_bar": 3.0,
+        "macd_signal": "金叉",
+        "rsi": 75.9,
+        "vol_ratio": 1.13,
+        "change_5d": 27.99,
+        "high_20": 73.47,
+        "low_20": 45.45,
+        "tushare_close": 72.44,
+        "trend": "多头排列",
+        "bias5": 7.48,
+        "bias20": 25.18
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 61,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(7.5%)，有回落风险",
+          "RSI超买(76>70)，短期回调风险高",
+          "卖盘占优(买/卖=0.6倍)"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "卖盘占优"
+      },
+      "ai_analysis": {
+        "operation_advice": "卖出",
+        "sentiment_score": 55,
+        "analysis_summary": "趋势强劲但RSI严重超买，建议获利了结等回调",
+        "target_price": "64.5",
+        "stop_loss": "62.0",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "西部材料2025年营收32.31亿元增9.67%，扣非净利7224.95万元降30.89%",
+        "summary": "53万元，三项指标均高于全年单季度平均水平，但未能扭转全年扣非净利润下滑趋势。毛利率承压成为盈利下滑主因。稀有金属压延加工行业整体毛利率同比下降3.\n01个百分点至17.\n62%，核心在于营业成本同比增长13.\n83%，显著高于营业收入9.\n67%的增速。成本上升压力直接传导至利润端，致使扣非净利润同比减少30.\n89%。销售费用为4113.\n52万元，同比增长0.\n10%，基本持平，销售费用率随之下降，但未能对冲成本端上行带来的盈利侵蚀。\n研发投入持续加码，金额达2.\n13亿元，同比增长22.\n82%，占营业收入比重升至6.\n59%，研发人员增至294人，同比增长2.\n08%，投入增速明显高"
+      },
+      "rule_score": 30,
+      "day_change": -1.4,
+      "_user_current": 69.86,
+      "pre_close": 69.86,
+      "change_pct": 10.0,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 72.44,
+            "volume": 799
+          },
+          {
+            "price": 72.43,
+            "volume": 14
+          },
+          {
+            "price": 72.42,
+            "volume": 7
+          },
+          {
+            "price": 72.41,
+            "volume": 39
+          },
+          {
+            "price": 72.4,
+            "volume": 167
+          }
+        ],
+        "asks": [
+          {
+            "price": 72.45,
+            "volume": 83
+          },
+          {
+            "price": 72.46,
+            "volume": 398
+          },
+          {
+            "price": 72.47,
+            "volume": 210
+          },
+          {
+            "price": 72.48,
+            "volume": 1084
+          },
+          {
+            "price": 72.49,
+            "volume": 54
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 75.9,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 67.4,
+        "ma10": 63.78,
+        "ma20": 57.87,
+        "sample_5d": 26,
+        "avg_5d": 13.15,
+        "win_5d": 73.1,
+        "sample_10d": 26,
+        "avg_10d": 22.22,
+        "win_10d": 57.7
+      },
+      "ai_deepseek": {
+        "operation_advice": "持有",
+        "sentiment_score": 60,
+        "analysis_summary": "良性回调，趋势未破",
+        "analysis_detailed": "小跌1.4%，仍站上所有均线，RSI76，量比正常，可继续持有，目标价73.47，止损57.87。",
+        "target_price": "73.47",
+        "stop_loss": "57.87",
+        "confidence_level": "中"
+      },
+      "turnover": 19.25,
+      "amount_wan": 939682.0
+    },
+    {
+      "code": "002580",
+      "name": "圣阳股份",
+      "sector": "储能电池",
+      "cost": 26.9203,
+      "current": 32.9,
+      "qty": 100,
+      "pnl": 597.97,
+      "pnl_pct": 22.21,
+      "position_value": 3290,
+      "position_cost": 2692.03,
+      "technical": {
+        "ma5": 29.73,
+        "ma10": 28.84,
+        "ma20": 26.53,
+        "ma60": 18.17,
+        "dif": 3.38,
+        "dea": 3.33,
+        "macd_bar": 0.1,
+        "macd_signal": "金叉",
+        "rsi": 65.8,
+        "vol_ratio": 0.76,
+        "change_5d": 11.53,
+        "high_20": 33.0,
+        "low_20": 15.68,
+        "tushare_close": 32.9,
+        "trend": "多头排列",
+        "bias5": 10.66,
+        "bias20": 24.01
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 70,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(10.7%)，有回落风险"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "偏强",
+        "money_flow_status": "",
+        "order_book_status": ""
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 75,
+        "analysis_summary": "涨停强势多头排列,MACD顶背离风险警惕",
+        "target_price": "36.2",
+        "stop_loss": "28.5",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "8个交易日内股价大涨 圣阳股份：固态电池等尚未产生收入",
+        "summary": "热门概念业务尚无营收\n在股市中，脱离基本面的暴涨往往需要一个极具想象力的“故事”，而圣阳股份近期备受资金青睐，核心正是公司布局多项新能源前沿技术题材。\n圣阳股份在公告中提到，近期，公司关注到有市场信息正在热烈讨论公司关于液冷、钠离子电池、固态电池等业务。然而，面对市场的疯狂热炒，圣阳股份对相关业务的真实进展进行了详细的说明和“降温”。圣阳股份称，截至目前，公司液冷储能系统产品处于市场化推广与应用落地推进阶段，已中标项目，尚未完成交付，亦未形成营业收入；公司钠离子电池产品、固态电池产品已完成第三方机构验证测试，目前处于典型场景试点应用阶段，尚未产生营业收入，距离批量化生产仍需较长周期。圣阳股份进"
+      },
+      "rule_score": 42,
+      "day_change": 10.0,
+      "_user_current": 29.78,
+      "pre_close": 29.78,
+      "change_pct": 8.37,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 32.9,
+            "volume": 47402
+          },
+          {
+            "price": 32.89,
+            "volume": 1193
+          },
+          {
+            "price": 32.88,
+            "volume": 344
+          },
+          {
+            "price": 32.87,
+            "volume": 124
+          },
+          {
+            "price": 32.86,
+            "volume": 43
+          }
+        ],
+        "asks": [
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 65.8,
+        "rsi_zone": "中性",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 29.73,
+        "ma10": 28.84,
+        "ma20": 26.52,
+        "sample_5d": 36,
+        "avg_5d": 4.4,
+        "win_5d": 61.1,
+        "sample_10d": 36,
+        "avg_10d": 10.19,
+        "win_10d": 63.9
+      },
+      "ai_deepseek": {
+        "operation_advice": "减仓",
+        "sentiment_score": 35,
+        "analysis_summary": "涨停但RSI偏低",
+        "analysis_detailed": "涨停10%，但RSI仅66，突破前高，获利盘多，建议减仓，目标价33.0，止损26.53。",
+        "target_price": "33.0",
+        "stop_loss": "26.53",
+        "confidence_level": "中"
+      },
+      "turnover": 18.98,
+      "amount_wan": 858447.0
+    },
+    {
+      "code": "000823",
+      "name": "超声电子",
+      "sector": "电子元器件",
+      "cost": 15.4668,
+      "current": 17.58,
+      "qty": 300,
+      "pnl": 633.96,
+      "pnl_pct": 13.66,
+      "position_value": 5274,
+      "position_cost": 4640.04,
+      "technical": {
+        "ma5": 16.14,
+        "ma10": 15.98,
+        "ma20": 15.63,
+        "ma60": 14.97,
+        "dif": 0.52,
+        "dea": 0.36,
+        "macd_bar": 0.32,
+        "macd_signal": "金叉",
+        "rsi": 68.3,
+        "vol_ratio": 1.77,
+        "change_5d": 15.05,
+        "high_20": 17.58,
+        "low_20": 13.66,
+        "tushare_close": 17.58,
+        "trend": "多头排列",
+        "bias5": 8.92,
+        "bias20": 12.48
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 74,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "放量(量比1.77)，资金活跃",
+          "买盘占优(买/卖=1.8倍)"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(8.9%)，有回落风险"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "偏强",
+        "money_flow_status": "",
+        "order_book_status": "买盘占优"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 62,
+        "analysis_summary": "多头排列但乖离过大，MA5回落警惕回调，持股观望",
+        "target_price": "19.5",
+        "stop_loss": "14.9",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "查询失败",
+        "summary": "'NoneType' object has no attribute 'get'"
+      },
+      "rule_score": 37,
+      "day_change": 1.56,
+      "_user_current": 15.74,
+      "pre_close": 15.74,
+      "change_pct": 5.78,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 17.58,
+            "volume": 1418
+          },
+          {
+            "price": 17.57,
+            "volume": 432
+          },
+          {
+            "price": 17.56,
+            "volume": 964
+          },
+          {
+            "price": 17.55,
+            "volume": 1144
+          },
+          {
+            "price": 17.54,
+            "volume": 100
+          }
+        ],
+        "asks": [
+          {
+            "price": 17.59,
+            "volume": 775
+          },
+          {
+            "price": 17.6,
+            "volume": 616
+          },
+          {
+            "price": 17.61,
+            "volume": 416
+          },
+          {
+            "price": 17.62,
+            "volume": 387
+          },
+          {
+            "price": 17.63,
+            "volume": 113
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 68.3,
+        "rsi_zone": "中性",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 16.14,
+        "ma10": 15.98,
+        "ma20": 15.63,
+        "sample_5d": 36,
+        "avg_5d": -0.19,
+        "win_5d": 55.6,
+        "sample_10d": 36,
+        "avg_10d": -1.97,
+        "win_10d": 47.2
+      },
+      "ai_deepseek": {
+        "operation_advice": "持有",
+        "sentiment_score": 65,
+        "analysis_summary": "量价齐升，趋势向上",
+        "analysis_detailed": "量比1.8，涨幅温和，均线多头，RSI68未过热，可继续持有，目标价17.58，止损15.63。",
+        "target_price": "17.58",
+        "stop_loss": "15.63",
+        "confidence_level": "中"
+      },
+      "turnover": 12.79,
+      "amount_wan": 686714.0
+    },
+    {
+      "code": "002222",
+      "name": "福晶科技",
+      "sector": "光学光电子",
+      "cost": 90.74,
+      "current": 108.24,
+      "qty": 100,
+      "pnl": 1750.0,
+      "pnl_pct": 19.29,
+      "position_value": 10824,
+      "position_cost": 9074.0,
+      "technical": {
+        "ma5": 94.62,
+        "ma10": 92.64,
+        "ma20": 89.58,
+        "ma60": 74.79,
+        "dif": 6.18,
+        "dea": 5.39,
+        "macd_bar": 1.58,
+        "macd_signal": "金叉",
+        "rsi": 74.4,
+        "vol_ratio": 1.33,
+        "change_5d": 26.45,
+        "high_20": 108.24,
+        "low_20": 81.09,
+        "tushare_close": 108.24,
+        "trend": "多头排列",
+        "bias5": 14.39,
+        "bias20": 20.83
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 65,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(14.4%)，有回落风险",
+          "RSI超买(74>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": ""
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 42,
+        "analysis_summary": "短线回调MACD死叉，中线多头趋势未破",
+        "target_price": "100",
+        "stop_loss": "88",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "2025年度内部控制自我评价报告",
+        "summary": "福晶科技:2025年度内部控制自我评价报告"
+      },
+      "rule_score": 50,
+      "day_change": 10.0,
+      "_user_current": 92.66,
+      "rule_signal": "持有",
+      "pre_close": 92.66,
+      "change_pct": 6.73,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 108.24,
+            "volume": 11133
+          },
+          {
+            "price": 108.23,
+            "volume": 72
+          },
+          {
+            "price": 108.22,
+            "volume": 1
+          },
+          {
+            "price": 108.2,
+            "volume": 15
+          },
+          {
+            "price": 108.16,
+            "volume": 1
+          }
+        ],
+        "asks": [
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          },
+          {
+            "price": 0.0,
+            "volume": 0
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 74.4,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 94.62,
+        "ma10": 92.64,
+        "ma20": 89.58,
+        "sample_5d": 28,
+        "avg_5d": 2.86,
+        "win_5d": 50.0,
+        "sample_10d": 28,
+        "avg_10d": 1.91,
+        "win_10d": 57.1
+      },
+      "ai_deepseek": {
+        "operation_advice": "减仓",
+        "sentiment_score": 40,
+        "analysis_summary": "涨停放量，注意风险",
+        "analysis_detailed": "涨停10%，量比1.3，RSI74，获利盘积累，建议减仓，目标价108.24，止损89.58。",
+        "target_price": "108.24",
+        "stop_loss": "89.58",
+        "confidence_level": "中"
+      },
+      "turnover": 12.28,
+      "amount_wan": 575045.0
+    },
+    {
+      "code": "603773",
+      "name": "沃格光电",
+      "sector": "光电显示",
+      "cost": 68.214,
+      "current": 72.75,
+      "qty": 100,
+      "pnl": 453.6,
+      "pnl_pct": 6.65,
+      "position_value": 7275,
+      "position_cost": 6821.4,
+      "technical": {
+        "ma5": 69.45,
+        "ma10": 65.79,
+        "ma20": 56.61,
+        "ma60": 43.99,
+        "dif": 7.92,
+        "dea": 6.74,
+        "macd_bar": 2.36,
+        "macd_signal": "金叉",
+        "rsi": 75.5,
+        "vol_ratio": 1.12,
+        "change_5d": 14.75,
+        "high_20": 72.75,
+        "low_20": 35.65,
+        "tushare_close": 72.75,
+        "trend": "多头排列",
+        "bias5": 4.75,
+        "bias20": 28.51
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 78,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "买盘堆积(买/卖=3.1倍)，支撑强劲"
+        ],
+        "risk_factors": [
+          "RSI超买(76>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "买盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 72,
+        "analysis_summary": "多头趋势强劲但RSI超买，宜持有等回调",
+        "target_price": "78.5",
+        "stop_loss": "64.4",
+        "confidence_level": "中"
+      },
+      "news": {
+        "title": "江西沃格光电集团股份有限公司2025年年度股东会会议材料",
+        "summary": "沃格光电:江西沃格光电集团股份有限公司2025年年度股东会会议材料"
+      },
+      "rule_score": 60,
+      "day_change": 6.05,
+      "_user_current": 66.8,
+      "rule_signal": "买入",
+      "pre_close": 66.8,
+      "change_pct": -3.68,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 72.75,
+            "volume": 9
+          },
+          {
+            "price": 72.74,
+            "volume": 98
+          },
+          {
+            "price": 72.73,
+            "volume": 95
+          },
+          {
+            "price": 72.72,
+            "volume": 299
+          },
+          {
+            "price": 72.71,
+            "volume": 850
+          }
+        ],
+        "asks": [
+          {
+            "price": 72.76,
+            "volume": 3
+          },
+          {
+            "price": 72.77,
+            "volume": 28
+          },
+          {
+            "price": 72.78,
+            "volume": 13
+          },
+          {
+            "price": 72.79,
+            "volume": 24
+          },
+          {
+            "price": 72.8,
+            "volume": 368
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 75.5,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 69.45,
+        "ma10": 65.79,
+        "ma20": 56.61,
+        "sample_5d": 7,
+        "avg_5d": 14.89,
+        "win_5d": 85.7,
+        "sample_10d": 7,
+        "avg_10d": 24.23,
+        "win_10d": 85.7
+      },
+      "ai_deepseek": {
+        "operation_advice": "持有",
+        "sentiment_score": 60,
+        "analysis_summary": "多头趋势，涨幅温和",
+        "analysis_detailed": "涨6%，均线多头，RSI76，量比正常，可持有，目标价72.75，止损56.61。",
+        "target_price": "72.75",
+        "stop_loss": "56.61",
+        "confidence_level": "中"
+      },
+      "turnover": 15.19,
+      "amount_wan": 341326.0
+    },
+    {
+      "code": "000066",
+      "name": "中国长城",
+      "sector": "信创",
+      "cost": 23.13,
+      "current": 23.09,
+      "qty": 100,
+      "pnl": -4.0,
+      "pnl_pct": -0.17,
+      "position_value": 2309,
+      "position_cost": 2313.0,
+      "technical": {
+        "ma5": 21.34,
+        "ma10": 18.96,
+        "ma20": 17.18,
+        "ma60": 16.27,
+        "dif": 1.7,
+        "dea": 0.84,
+        "macd_bar": 1.72,
+        "macd_signal": "金叉",
+        "rsi": 86.5,
+        "vol_ratio": 1.65,
+        "change_5d": 29.5,
+        "high_20": 23.98,
+        "low_20": 14.9,
+        "tushare_close": 23.09,
+        "trend": "多头排列",
+        "bias5": 8.2,
+        "bias20": 34.4
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 73,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "放量(量比1.65)，资金活跃",
+          "买盘堆积(买/卖=5.7倍)，支撑强劲"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(8.2%)，有回落风险",
+          "RSI超买(86>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "买盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 65,
+        "analysis_summary": "多头趋势强劲但RSI极度超买，警惕短线回调",
+        "target_price": "25.0",
+        "stop_loss": "18.19",
+        "confidence_level": "中"
+      },
+      "news": {},
+      "rule_score": 70,
+      "day_change": -3.71,
+      "_user_current": null,
+      "pre_close": 21.8,
+      "change_pct": 10.0,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 23.09,
+            "volume": 1764
+          },
+          {
+            "price": 23.08,
+            "volume": 2434
+          },
+          {
+            "price": 23.07,
+            "volume": 4598
+          },
+          {
+            "price": 23.06,
+            "volume": 18963
+          },
+          {
+            "price": 23.05,
+            "volume": 10755
+          }
+        ],
+        "asks": [
+          {
+            "price": 23.1,
+            "volume": 1617
+          },
+          {
+            "price": 23.11,
+            "volume": 390
+          },
+          {
+            "price": 23.12,
+            "volume": 2847
+          },
+          {
+            "price": 23.13,
+            "volume": 1498
+          },
+          {
+            "price": 23.14,
+            "volume": 351
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 86.5,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 21.34,
+        "ma10": 18.96,
+        "ma20": 17.18,
+        "sample_5d": 12,
+        "avg_5d": 3.1,
+        "win_5d": 66.7,
+        "sample_10d": 12,
+        "avg_10d": 3.58,
+        "win_10d": 58.3
+      },
+      "ai_deepseek": {
+        "operation_advice": "观望",
+        "sentiment_score": 30,
+        "analysis_summary": "冲高回落，量能放大",
+        "analysis_detailed": "跌3.7%，RSI86超买但价格跌，量比1.6显示抛压，建议观望，目标价23.98，止损17.18。",
+        "target_price": "23.98",
+        "stop_loss": "17.18",
+        "confidence_level": "高"
+      },
+      "turnover": 20.48,
+      "amount_wan": 6605506.0
+    },
+    {
+      "code": "002812",
+      "name": "恩捷股份",
+      "sector": "",
+      "cost": 85.65,
+      "current": 81.27,
+      "qty": 100,
+      "pnl": -438.0,
+      "pnl_pct": -5.11,
+      "position_value": 8127,
+      "position_cost": 8565.0,
+      "day_change": -4.74,
+      "technical": {
+        "ma5": 84.31,
+        "ma10": 80.3,
+        "ma20": 75.2,
+        "ma60": 67.9,
+        "dif": 4.34,
+        "dea": 3.49,
+        "macd_bar": 1.7,
+        "macd_signal": "金叉",
+        "rsi": 62.5,
+        "vol_ratio": 0.91,
+        "change_5d": 3.52,
+        "high_20": 87.55,
+        "low_20": 65.82,
+        "tushare_close": 81.27,
+        "trend": "多头排列",
+        "bias5": -3.61,
+        "bias20": 8.07
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 75,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强"
+        ],
+        "risk_factors": [],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "偏强",
+        "money_flow_status": "",
+        "order_book_status": ""
+      },
+      "_user_current": 85.05,
+      "pre_close": 87.55,
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 62,
+        "analysis_summary": "上升趋势中正常回调，短线企稳后考虑加仓",
+        "target_price": "92.0",
+        "stop_loss": "74.5",
+        "confidence_level": "中"
+      },
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 81.27,
+            "volume": 680
+          },
+          {
+            "price": 81.26,
+            "volume": 259
+          },
+          {
+            "price": 81.25,
+            "volume": 122
+          },
+          {
+            "price": 81.24,
+            "volume": 34
+          },
+          {
+            "price": 81.23,
+            "volume": 22
+          }
+        ],
+        "asks": [
+          {
+            "price": 81.28,
+            "volume": 579
+          },
+          {
+            "price": 81.29,
+            "volume": 71
+          },
+          {
+            "price": 81.3,
+            "volume": 279
+          },
+          {
+            "price": 81.31,
+            "volume": 14
+          },
+          {
+            "price": 81.32,
+            "volume": 30
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 62.5,
+        "rsi_zone": "中性",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 84.31,
+        "ma10": 80.3,
+        "ma20": 75.2,
+        "sample_5d": 23,
+        "avg_5d": 2.19,
+        "win_5d": 43.5,
+        "sample_10d": 23,
+        "avg_10d": 3.57,
+        "win_10d": 52.2
+      },
+      "ai_deepseek": {
+        "operation_advice": "观望",
+        "sentiment_score": 35,
+        "analysis_summary": "破位下行，等待支撑",
+        "analysis_detailed": "跌4.7%，跌破5日线，RSI62，量比0.9，动能不足，观望为主，目标价87.55，止损75.2。",
+        "target_price": "87.55",
+        "stop_loss": "75.2",
+        "confidence_level": "中"
+      },
+      "turnover": 5.79,
+      "amount_wan": 476477.0
+    },
+    {
+      "code": "002156",
+      "name": "通富微电",
+      "sector": "半导体封测",
+      "cost": 59.3006,
+      "current": 57.16,
+      "qty": 100,
+      "pnl": -214.06,
+      "pnl_pct": -3.61,
+      "position_value": 5716,
+      "position_cost": 5930.06,
+      "technical": {
+        "ma5": 54.89,
+        "ma10": 52.05,
+        "ma20": 49.32,
+        "ma60": 47.41,
+        "dif": 2.79,
+        "dea": 1.66,
+        "macd_bar": 2.26,
+        "macd_signal": "金叉",
+        "rsi": 71.9,
+        "vol_ratio": 1.19,
+        "change_5d": 13.75,
+        "high_20": 59.08,
+        "low_20": 44.65,
+        "tushare_close": 57.16,
+        "trend": "多头排列",
+        "bias5": 4.14,
+        "bias20": 15.9
+      },
+      "stockholmes": {
+        "buy_signal": "买入",
+        "signal_score": 78,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "买盘堆积(买/卖=3.4倍)，支撑强劲"
+        ],
+        "risk_factors": [
+          "RSI超买(72>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买",
+        "money_flow_status": "",
+        "order_book_status": "买盘强势"
+      },
+      "ai_analysis": {
+        "operation_advice": "持有",
+        "sentiment_score": 65,
+        "analysis_summary": "多头趋势完好但短期超买，持股待调",
+        "target_price": "62.0",
+        "stop_loss": "50.0",
+        "confidence_level": "中"
+      },
+      "news": {},
+      "rule_score": null,
+      "day_change": -3.25,
+      "_user_current": null,
+      "pre_close": 56.95,
+      "change_pct": 4.18,
+      "money_flow": {},
+      "order_book": {
+        "bids": [
+          {
+            "price": 57.16,
+            "volume": 2917
+          },
+          {
+            "price": 57.15,
+            "volume": 683
+          },
+          {
+            "price": 57.14,
+            "volume": 244
+          },
+          {
+            "price": 57.13,
+            "volume": 473
+          },
+          {
+            "price": 57.12,
+            "volume": 399
+          }
+        ],
+        "asks": [
+          {
+            "price": 57.17,
+            "volume": 88
+          },
+          {
+            "price": 57.18,
+            "volume": 82
+          },
+          {
+            "price": 57.19,
+            "volume": 180
+          },
+          {
+            "price": 57.2,
+            "volume": 1029
+          },
+          {
+            "price": 57.21,
+            "volume": 19
+          }
+        ]
+      },
+      "pattern": {
+        "rsi": 71.9,
+        "rsi_zone": "超买",
+        "trend": "上升",
+        "macd": "金叉",
+        "ma5": 54.89,
+        "ma10": 52.05,
+        "ma20": 49.32,
+        "sample_5d": 18,
+        "avg_5d": 3.6,
+        "win_5d": 61.1,
+        "sample_10d": 18,
+        "avg_10d": 9.71,
+        "win_10d": 61.1
+      },
+      "ai_deepseek": {
+        "operation_advice": "观望",
+        "sentiment_score": 40,
+        "analysis_summary": "回调但趋势未坏",
+        "analysis_detailed": "跌3.2%，仍在5日线上方，RSI72，量比1.2，可观察能否守住5日线，目标价59.08，止损49.32。",
+        "target_price": "59.08",
+        "stop_loss": "49.32",
+        "confidence_level": "中"
+      },
+      "turnover": 10.7,
+      "amount_wan": 1623790.0
+    }
+  ],
+  "total_cost": 115236.77999999998,
+  "total_value": 126886,
+  "total_pnl": 11649.22,
+  "total_pnl_pct": 10.11,
+  "date": "2026-05-07",
+  "report_time": "2026-05-07 14:20 盘中实时"
+}

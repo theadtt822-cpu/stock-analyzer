@@ -4,8 +4,14 @@ __pycache__/
 .venv/
 *.egg-info/
 
-# 输出文件（报告、数据）
-output/
+# 输出文件（报告、数据）——仅允许特定数据文件
+output/*
+!output/boss/portfolio_dashboard.json
+!output/boyfriend/portfolio_dashboard.json
+!output/portfolio_data.json
+!output/boyfriend/extra_holdings.json
+!output/boss/watchlist.json
+!output/boyfriend/watchlist.json
 
 # 日志
 *.log

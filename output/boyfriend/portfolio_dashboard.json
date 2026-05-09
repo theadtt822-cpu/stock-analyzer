@@ -1,0 +1,74 @@
+{
+  "results": [
+    {
+      "code": "600208",
+      "name": "衢州发展",
+      "sector": "基建/地产",
+      "cost": 5.11,
+      "current": 5.06,
+      "qty": 100,
+      "pnl": -5.0,
+      "pnl_pct": -0.98,
+      "position_value": 506,
+      "position_cost": 511.0,
+      "technical": {
+        "ma5": 4.51,
+        "ma10": 4.39,
+        "ma20": 3.86,
+        "ma60": 3.6,
+        "dif": 0.36,
+        "dea": 0.24,
+        "macd_bar": 0.24,
+        "macd_signal": "金叉",
+        "rsi": 78.3,
+        "vol_ratio": 1.72,
+        "change_5d": 19.72,
+        "high_20": 5.1,
+        "low_20": 3.15,
+        "tushare_close": 5.1,
+        "trend": "多头排列",
+        "bias5": 13.08,
+        "bias20": 32.12
+      },
+      "stockholmes": {
+        "buy_signal": "持有",
+        "signal_score": 65,
+        "signal_reasons": [
+          "多头排列，顺势做多",
+          "MACD金叉，上涨动能增强",
+          "放量(量比1.72)，资金活跃"
+        ],
+        "risk_factors": [
+          "偏离MA5过远(13.1%)，有回落风险",
+          "RSI超买(78>70)，短期回调风险高"
+        ],
+        "ma_alignment": "多头排列 MA5>MA10>MA20",
+        "macd_status": "金叉看涨",
+        "rsi_status": "超买"
+      },
+      "ai_analysis": {
+        "operation_advice": "买入",
+        "target_price": "5.3",
+        "stop_loss": "4.3",
+        "confidence_level": "高",
+        "sentiment_score": 75,
+        "analysis_summary": "多头排列+金叉，趋势强劲"
+      },
+      "news": {
+        "title": "衢州发展涨停，资金强势封板",
+        "summary": "衢州发展今日涨停，涨幅+9.89%，成交额24.28亿，换手率5.67%。早盘快速拉升封板，午盘小幅打开后回封。"
+      },
+      "rule_score": 70,
+      "day_change": -0.78,
+      "_user_current": 5.11,
+      "pre_close": 4.65,
+      "change_pct": 9.89
+    }
+  ],
+  "total_cost": 511.0,
+  "total_value": 506,
+  "total_pnl": -5.0,
+  "total_pnl_pct": -0.98,
+  "date": "2026-05-07",
+  "report_time": "2026-05-07 14:17 盘中实时"
+}
